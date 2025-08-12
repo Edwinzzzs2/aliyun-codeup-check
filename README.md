@@ -38,10 +38,13 @@ pnpm install
 ### 开发模式
 
 ```bash
+npm run build
 npm run dev
 # 或
+yarn build
 yarn dev
 # 或
+pnpm build
 pnpm dev
 ```
 
