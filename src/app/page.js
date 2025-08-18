@@ -699,7 +699,7 @@ export default function HomePage() {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>配置阿里云 Codeup Token</DialogTitle>
+        <DialogTitle>配置阿里云 CodeUp Token</DialogTitle>
         <DialogContent>
           {/* Token获取指引区域 */}
           <Box
@@ -803,12 +803,12 @@ export default function HomePage() {
 
           <TextField
             margin="normal"
-            label="Codeup Token"
+            label="CodeUp Token"
             type={showPassword ? "text" : "password"}
             value={tempToken}
             onChange={(e) => setTempToken(e.target.value)}
             fullWidth
-            placeholder="请输入阿里云 Codeup Token"
+            placeholder="请输入阿里云 CodeUp Token"
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
