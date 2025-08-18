@@ -68,7 +68,7 @@ export function LayoutProvider({ children }) {
       setToken(savedToken);
       setOrgId(savedOrgId);
     }
-    
+
     if (savedRepo) {
       setSelectedRepo(savedRepo);
     }
@@ -112,8 +112,8 @@ export function LayoutProvider({ children }) {
       const list = Array.isArray(data)
         ? data
         : Array.isArray(data?.result)
-        ? data.result
-        : [];
+          ? data.result
+          : [];
 
       const filteredRepos = list
         .filter((repo) => repo.accessLevel && repo.accessLevel !== 0)
@@ -154,181 +154,98 @@ export function LayoutProvider({ children }) {
   };
 
   return (
-    <Box sx={{ display: "flex" }}>
-      {/* 全局Loading进度条 - 始终保留空间，避免页面抖动 */}
-      <Box sx={{ 
-        position: "fixed", 
-        top: 0, 
-        left: 0, 
-        right: 0, 
-        height: "4px", 
-        zIndex: 1300,
-        backgroundColor: "transparent"
-      }}>
-        {(loading.repos || loading.global) && (
-          <LinearProgress sx={{ position: "absolute", top: 0, left: 0, right: 0 }} />
-        )}
-      </Box>
-      
-      {/* 左侧导航栏 */}
-      <Drawer
-        variant="permanent"
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+      <AppBar
+        position="fixed"
+        elevation={0}
         sx={{
-          width: drawerWidth,
-          flexShrink: 0,
-          "& .MuiDrawer-paper": {
-            width: drawerWidth,
-            boxSizing: "border-box",
-            backgroundColor: "#fafbfc",
-            borderRight: "1px solid rgba(0, 0, 0, 0.12)",
-          },
+          backgroundColor: "#ffffff",
+          backdropFilter: "blur(12px)",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.06)",
+          borderBottom: "1px solid #eaeef5",
+          zIndex: (theme) => theme.zIndex.drawer + 1,
         }}
       >
-        <Toolbar>
-          <Typography
-            variant="h6"
-            noWrap
-            component="div"
-            sx={{ fontSize: "1rem", fontWeight: 600 }}
-          >
-            CodeUp 工具
-          </Typography>
+        <Toolbar sx={{ justifyContent: "space-between", minHeight: "64px !important", px: 3 }}>
+          {/* 左侧：应用标题 + 代码库选择 */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Typography variant="h6" noWrap component="div" sx={{ fontSize: "1.25rem", fontWeight: 700, color: "#1976d2" }}>
+              CodeUp 工具
+            </Typography>
+            <FormControl size="small" sx={{ minWidth: 320 }}>
+              <InputLabel id="global-repo-select-label">选择代码库</InputLabel>
+              <Select labelId="global-repo-select-label" value={selectedRepo} label="选择代码库" onChange={handleRepoChange} disabled={loading.repos} sx={{ backgroundColor: "white" }}>
+                {repos.map((repo) => (
+                  <MenuItem key={repo.id} value={repo.id}>
+                    {repo.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+          {/* 右侧：操作按钮 */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Button variant="outlined" size="small" startIcon={loading.repos ? <CircularProgress size={16} /> : <Sync />} onClick={fetchRepos} disabled={loading.repos || !token} sx={{ color: "#1976d2", borderColor: "#1976d2" }}>
+              {loading.repos ? "同步中..." : "同步"}
+            </Button>
+            <Button variant="outlined" size="small" startIcon={<Settings />} onClick={openConfigDialog} sx={{ color: "#1976d2", borderColor: "#1976d2" }}>
+              配置 Token
+            </Button>
+          </Box>
         </Toolbar>
-        <Divider />
-        <List>
-          {menuItems.map((item) => (
-            <ListItem key={item.text} disablePadding>
-              <ListItemButton
-                selected={pathname === item.path}
-                onClick={() => handleNavigation(item.path)}
-                sx={{
-                  "&.Mui-selected": {
-                    backgroundColor: "rgba(25, 118, 210, 0.08)",
-                    "&:hover": {
-                      backgroundColor: "rgba(25, 118, 210, 0.12)",
-                    },
-                  },
-                }}
-              >
-                <ListItemIcon
-                  sx={{ color: pathname === item.path ? "#1976d2" : "inherit" }}
-                >
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText
-                  primary={item.text}
-                  sx={{
-                    "& .MuiListItemText-primary": {
-                      color: pathname === item.path ? "#1976d2" : "inherit",
-                      fontWeight: pathname === item.path ? 600 : 400,
-                    },
-                  }}
-                />
-              </ListItemButton>
-            </ListItem>
-          ))}
-        </List>
-      </Drawer>
-
-      {/* 主内容区域 */}
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          height: "100vh",
-          backgroundColor: "#fafbfc",
-          backgroundImage: "linear-gradient(135deg, #ffffff 0%, #f0f2f5 100%)",
-          overflow: "hidden", // 防止主容器滚动
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {/* 顶部工具栏 */}
-        <AppBar
-          position="fixed"
-          elevation={0}
+        {(loading.repos || loading.global) && (
+          <LinearProgress sx={{ position: "absolute", bottom: 0, left: 0, right: 0 }} />
+        )}
+      </AppBar>
+      {/* 下方区域：左侧导航 + 右侧内容 */}
+      <Box sx={{ display: "flex", flexGrow: 1, mt: 8 }}>
+        {/* 左侧导航栏 */}
+        <Drawer
+          variant="permanent"
           sx={{
-            backgroundColor: "#ffffff",
-            backdropFilter: "blur(20px)",
-            borderBottom: "1px solid #e0e0e0",
-            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
-            zIndex: 1200,
-            top: "4px", // 为loading进度条留出空间
-            left: `${drawerWidth}px`, // 避开左侧导航栏
-            width: `calc(100% - ${drawerWidth}px)`, // 调整宽度
+            width: drawerWidth,
+            flexShrink: 0,
+            "& .MuiDrawer-paper": {
+              width: drawerWidth,
+              boxSizing: "border-box",
+              backgroundColor: "#f7f9fc",
+              borderRight: "1px solid rgba(0, 0, 0, 0.08)",
+              position: "relative",
+              mt: 0,
+            },
           }}
         >
-          <Toolbar sx={{ justifyContent: "space-between", minHeight: "56px !important", py: 1 }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <FormControl size="small" sx={{ minWidth: 300 }}>
-                <InputLabel id="global-repo-select-label">
-                  选择代码库
-                </InputLabel>
-                <Select
-                  labelId="global-repo-select-label"
-                  value={selectedRepo}
-                  label="选择代码库"
-                  onChange={handleRepoChange}
-                  disabled={loading.repos}
-                  sx={{ backgroundColor: "white" }}
+          <List sx={{ pt: 2 }}>
+            {menuItems.map((item) => (
+              <ListItem key={item.text} disablePadding>
+                <ListItemButton
+                  selected={pathname === item.path}
+                  onClick={() => handleNavigation(item.path)}
+                  sx={{
+                    "&.Mui-selected": {
+                      backgroundColor: "rgba(25, 118, 210, 0.08)",
+                      "&:hover": { backgroundColor: "rgba(25, 118, 210, 0.12)" },
+                    },
+                  }}
                 >
-                  {repos.map((repo) => (
-                    <MenuItem key={repo.id} value={repo.id}>
-                      {repo.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
+                  <ListItemIcon sx={{ color: pathname === item.path ? "#1976d2" : "inherit" }}>
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={item.text}
+                    sx={{ "& .MuiListItemText-primary": { color: pathname === item.path ? "#1976d2" : "inherit", fontWeight: pathname === item.path ? 600 : 400 } }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        </Drawer>
 
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={
-                  loading.repos ? <CircularProgress size={16} /> : <Sync />
-                }
-                onClick={fetchRepos}
-                disabled={loading.repos || !token}
-                sx={{ color: "#1976d2", borderColor: "#1976d2" }}
-              >
-                {loading.repos ? "同步中..." : "同步"}
-              </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<Settings />}
-                onClick={openConfigDialog}
-                sx={{ color: "#1976d2", borderColor: "#1976d2" }}
-              >
-                配置 Token
-              </Button>
-            </Box>
-          </Toolbar>
-        </AppBar>
-
-        {/* 页面内容 */}
-        <Box sx={{ 
-          minHeight: 'calc(100vh - 100px)', // 内容区域最小高度=视口高度-头部占用，内容不足不滚动
-          mt: '100px', // 将内容整体下移，避开固定AppBar
-          overflowY: 'auto', // 仅超出时出现滚动
-          overflowX: 'hidden',
-          p: 1,
-          '& > *': { mb: 1.5 } 
-        }}>{children}</Box>
+        {/* 右侧主内容区域 */}
+        <Box component="main" sx={{ flexGrow: 1, height: "calc(100vh - 64px)",  overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <Box sx={{ flexGrow: 1, overflow: "hidden", p: 3, backgroundColor: "#f5f7fb" }}>{children}</Box>
+        </Box>
       </Box>
-
-      {/* 全局消息提示 */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar((s) => ({ ...s, open: false }))}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }

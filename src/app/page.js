@@ -393,8 +393,8 @@ export default function HomePage() {
     {
       field: "name",
       headerName: "分支名",
-      flex: 1,
-      minWidth: 400,
+      flex: 2,
+      minWidth: 200,
       sortable: true,
       renderCell: (params) => {
         const branchName = params.row.name;
@@ -430,7 +430,8 @@ export default function HomePage() {
     {
       field: "lastCommitter",
       headerName: "最近一个提交人",
-      width: 350,
+      flex: 1,
+      minWidth: 150,
       filterable: true,
       sortable: false,
       renderCell: (params) => {
@@ -442,7 +443,8 @@ export default function HomePage() {
     {
       field: "commitTime",
       headerName: "提交时间",
-      width: 280,
+      flex: 1,
+      minWidth: 160,
       sortable: false,
       renderCell: (params) => {
         const committedDate =
@@ -462,7 +464,8 @@ export default function HomePage() {
     {
       field: "mergeStatus",
       headerName: "合并状态",
-      width: 220,
+      flex: 1,
+      minWidth: 120,
       sortable: true,
       filterable: true,
       valueGetter: (params, row) => {
@@ -512,7 +515,7 @@ export default function HomePage() {
     {
       field: "actions",
       headerName: "操作",
-      width: 160,
+      width: 120,
       sortable: false,
       filterable: false,
       renderCell: (params) => {
@@ -539,32 +542,27 @@ export default function HomePage() {
     <Box
       sx={{
         minHeight: "100vh",
-        backgroundColor: "#fafbfc",
-        backgroundImage: "linear-gradient(135deg, #ffffff 0%, #f0f2f5 100%)",
       }}
     >
-      {/* 顶部标题和按钮已由全局 AppBar 提供，这里删除重复区域 */}
-
       {/* Loading进度条 - 始终保留空间，避免页面抖动 */}
-      <Box sx={{ width: "100%", mb: 2, height: "4px" }}>
+      <Box sx={{ width: "100%", height: "4px" }}>
         {(loading.merge || loading.branches) && (
           <LinearProgress />
         )}
       </Box>
       {/* 选择代码库 + 合并状态检测区域 + 搜索 */}
-      <Box
-        display="flex"
-        alignItems="center"
-        justifyContent="space-between"
-        flexWrap="wrap"
-        gap={2}
-        mb={1.5}
-        p={1.5}
+      <Paper
         sx={{
-          backgroundColor: "rgba(255, 255, 255, 0.9)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 2,
+          p: 2,
+          backgroundColor: "rgba(255, 255, 255, 0.95)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
           borderRadius: 2,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-          border: "1px solid rgba(255,255,255,0.2)",
+          border: "1px solid rgba(255,255,255,0.3)",
           backdropFilter: "blur(10px)",
         }}
       >
@@ -622,19 +620,19 @@ export default function HomePage() {
             fullWidth
           />
         </Box>
-      </Box>
+      </Paper>
 
       <Paper
         sx={{
           width: "100%",
-          mt: 2,
-          minHeight: 400,
-          maxHeight: "calc(100vh - 280px)", // 改为最大高度，允许内容少时自适应
+          mt: 1,
+          height: "calc(100vh - 280px)", // 固定高度
           backgroundColor: "rgba(255, 255, 255, 0.95)",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
           borderRadius: 2,
           border: "1px solid rgba(255,255,255,0.3)",
           backdropFilter: "blur(10px)",
+          overflow: "hidden", // 防止内容溢出
         }}
       >
         <DataGrid
@@ -670,7 +668,16 @@ export default function HomePage() {
           disableRowSelectionOnClick
           rowSelectionModel={selectedBranchNames}
           onRowSelectionModelChange={(model) => setSelectedBranchNames(model)}
-          sx={{ border: 0 }}
+          sx={{ 
+            border: 0,
+            width: "100%",
+            "& .MuiDataGrid-main": {
+              overflow: "hidden",
+            },
+            "& .MuiDataGrid-virtualScroller": {
+              overflow: "auto",
+            },
+          }}
           localeText={{
             noRowsLabel: loading.branches ? "加载中..." : "暂无数据",
             MuiTablePagination: {
