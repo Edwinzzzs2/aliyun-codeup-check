@@ -793,7 +793,12 @@ export default function HomePage() {
                 </Typography>
                 <Typography
                   variant="caption"
-                  sx={{ color: "#4caf50", fontWeight: "bold", display: "block", mt: 1 }}
+                  sx={{
+                    color: "#4caf50",
+                    fontWeight: "bold",
+                    display: "block",
+                    mt: 1,
+                  }}
                 >
                   🔒 隐私保护：Token仅存储在您的浏览器本地，服务器不存储任何数据
                 </Typography>
