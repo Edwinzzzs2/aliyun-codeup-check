@@ -37,7 +37,6 @@ import moment from "moment";
 export default function HomePage() {
   const [token, setToken] = useState("");
   const [orgId, setOrgId] = useState("5f9a23913a5188f27f3f344b");
-  const [repos, setRepos] = useState([]);
   const [selectedRepo, setSelectedRepo] = useState("");
   const [branches, setBranches] = useState([]);
   const [configDialog, setConfigDialog] = useState(false);
@@ -64,31 +63,65 @@ export default function HomePage() {
   const [mergeStatus, setMergeStatus] = useState({});
   const [selectedBranchNames, setSelectedBranchNames] = useState([]);
 
-  // Loading状态 - 合并为一个对象
+  // Loading状态 - 移除repos相关状态
   const [loading, setLoading] = useState({
-    repos: false,
     branches: false,
-    global: false,
     merge: false,
   });
+
+  // 创建合并请求的逐行loading状态
+  const [creatingCR, setCreatingCR] = useState({});
 
   // 页面加载时检查本地存储
   useEffect(() => {
     const savedToken = localStorage.getItem("codeup_token");
     const savedOrgId =
       localStorage.getItem("codeup_orgid") || "5f9a23913a5188f27f3f344b";
+    const savedRepo = localStorage.getItem("codeup_selected_repo");
 
     if (savedToken) {
       setToken(savedToken);
       setOrgId(savedOrgId);
       setTempToken(savedToken);
       setTempOrgId(savedOrgId);
-    } else {
-      // 没有token时自动弹出配置弹窗，并设置默认OrgId
-      setTempOrgId(savedOrgId);
-      setConfigDialog(true);
+    }
+    
+    if (savedRepo) {
+      setSelectedRepo(savedRepo);
     }
   }, []);
+
+  // 监听全局代码库选择变化
+  useEffect(() => {
+    const handleRepoChange = (event) => {
+      const { repoId } = event.detail;
+      setSelectedRepo(repoId);
+      // 清空当前分支数据和状态
+      setBranches([]);
+      setPage(0);
+      setSearchTerm("");
+      setSelectedBranchNames([]);
+      setMergeStatus({});
+      // 如果有选择的代码库且有token，立即获取分支
+      if (repoId && token) {
+        fetchBranches(repoId, 1, rowsPerPage, "");
+      }
+    };
+
+    const handleConfigDialog = () => {
+      setConfigDialog(true);
+    };
+
+    // 添加事件监听
+    window.addEventListener("repoChange", handleRepoChange);
+    window.addEventListener("openConfigDialog", handleConfigDialog);
+
+    // 清理事件监听
+    return () => {
+      window.removeEventListener("repoChange", handleRepoChange);
+      window.removeEventListener("openConfigDialog", handleConfigDialog);
+    };
+  }, [token, rowsPerPage]);
 
   const showMessage = (message, severity = "info") => {
     setSnackbar({ open: true, message, severity });
@@ -131,44 +164,7 @@ export default function HomePage() {
     setConfigDialog(true);
   };
 
-  const fetchRepos = async () => {
-    if (!token) return showMessage("请先配置 Token", "error");
-
-    setLoading((prev) => ({ ...prev, repos: true }));
-    try {
-      const res = await fetch(
-        `/api/codeup/repositories?token=${token}&orgId=${orgId}`
-      );
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      }
-
-      const data = await res.json();
-
-      const list = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.result)
-        ? data.result
-        : [];
-
-      const filteredRepos = list
-        .filter((repo) => repo.accessLevel && repo.accessLevel !== 0)
-        .map((repo) => ({ id: repo.id, name: repo.name }));
-
-      setRepos(filteredRepos);
-      showMessage(
-        `代码库获取成功，共找到 ${filteredRepos.length} 个有权限的代码库`,
-        "success"
-      );
-    } catch (error) {
-      console.error("获取代码库失败:", error);
-      showMessage("获取代码库失败", "error");
-      setRepos([]);
-    } finally {
-      setLoading((prev) => ({ ...prev, repos: false }));
-    }
-  };
+  // fetchRepos函数已移至全局layout-provider.js中管理
 
   // 带分页与搜索的分支请求
   const fetchBranches = async (
@@ -222,25 +218,7 @@ export default function HomePage() {
     }
   };
 
-  const handleRepoChange = (event) => {
-    const value = event.target.value;
-    setSelectedRepo(value);
-    setPage(0);
-    setSearchTerm("");
-    setSelectedBranchNames([]);
-    setMergeStatus({});
-    fetchBranches(value, 1, rowsPerPage, "");
-  };
-
-  // 当token存在时自动刷新仓库列表
-  useEffect(() => {
-    if (token && orgId) {
-      setLoading((prev) => ({ ...prev, global: true }));
-      fetchRepos().finally(() =>
-        setLoading((prev) => ({ ...prev, global: false }))
-      );
-    }
-  }, [token, orgId]);
+  // handleRepoChange和自动刷新仓库列表功能已移至全局layout-provider.js中管理
 
   // 搜索事件（300ms 防抖）
   const handleSearchChange = (event) => {
@@ -347,6 +325,66 @@ export default function HomePage() {
       showMessage("检测合并状态失败", "error");
     } finally {
       setLoading((prev) => ({ ...prev, merge: false }));
+    }
+  };
+
+  // 单行创建合并请求
+  const handleCreateChangeRequest = async (branchName) => {
+    if (!token) {
+      showMessage("请先配置 Token", "error");
+      return;
+    }
+    if (!selectedRepo) {
+      showMessage("请选择代码库", "warning");
+      return;
+    }
+    const target = (targetBranch || "").trim();
+    if (!target) {
+      showMessage("请输入目标分支", "warning");
+      return;
+    }
+
+    // 设置当前分支loading
+    setCreatingCR((prev) => ({ ...prev, [branchName]: true }));
+
+    try {
+      const payload = {
+        token,
+        orgId,
+        repoId: selectedRepo,
+        sourceBranch: branchName,
+        targetBranch: target,
+        title: `Merge ${branchName} -> ${target}`,
+        description: `Created by aliyun-codeup-check at ${new Date().toLocaleString()}`,
+      };
+
+      const res = await fetch("/api/codeup/change-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        let errMsg = `HTTP ${res.status}: ${res.statusText}`;
+        try {
+          const err = await res.json();
+          errMsg = err?.message || errMsg;
+        } catch (_) {}
+        throw new Error(errMsg);
+      }
+
+      const data = await res.json();
+      const id =
+        data?.localId ?? data?.result?.localId ?? data?.iid ?? data?.result?.id;
+      showMessage(
+        `合并请求创建成功${id ? `（ID: ${id}）` : ""}`,
+        "success"
+      );
+    } catch (error) {
+      console.error("创建合并请求失败:", error);
+      showMessage(`创建合并请求失败：${error.message || error}`, "error");
+    } finally {
+      setCreatingCR((prev) => ({ ...prev, [branchName]: false }));
     }
   };
 
@@ -470,61 +508,46 @@ export default function HomePage() {
         );
       },
     },
+    // 新增操作列：单行创建合并请求
+    {
+      field: "actions",
+      headerName: "操作",
+      width: 160,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => {
+        const branchName = params.row.name;
+        const busy = !!creatingCR[branchName];
+        const disabled = busy || !selectedRepo || !token || !targetBranch.trim();
+        return (
+          <Button
+            variant="outlined"
+            size="small"
+            disabled={disabled}
+            onClick={() => handleCreateChangeRequest(branchName)}
+            sx={{ minWidth: 96 }}
+          >
+            {busy ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
+            去合并
+          </Button>
+        );
+      },
+    },
   ];
 
   return (
     <Box
-      p={3}
       sx={{
         minHeight: "100vh",
         backgroundColor: "#fafbfc",
         backgroundImage: "linear-gradient(135deg, #ffffff 0%, #f0f2f5 100%)",
       }}
     >
-      <Box
-        display="flex"
-        alignItems="center"
-        justifyContent="space-between"
-        mb={2}
-      >
-        <Typography
-          variant="h5"
-          gutterBottom
-          sx={{
-            m: 0,
-            color: "#2c3e50",
-            fontWeight: 600,
-            textShadow: "0 1px 2px rgba(0,0,0,0.1)",
-          }}
-        >
-          阿里云 Codeup 分支统计检测
-        </Typography>
-        <Box display="flex" alignItems="center" gap={1}>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={
-              loading.repos ? <CircularProgress size={16} /> : <Sync />
-            }
-            onClick={fetchRepos}
-            disabled={loading.repos || !token}
-          >
-            {loading.repos ? "同步中..." : "同步"}
-          </Button>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<Settings />}
-            onClick={openConfigDialog}
-          >
-            配置 Token
-          </Button>
-        </Box>
-      </Box>
+      {/* 顶部标题和按钮已由全局 AppBar 提供，这里删除重复区域 */}
 
       {/* Loading进度条 - 始终保留空间，避免页面抖动 */}
       <Box sx={{ width: "100%", mb: 2, height: "4px" }}>
-        {(loading.merge || loading.branches || loading.repos) && (
+        {(loading.merge || loading.branches) && (
           <LinearProgress />
         )}
       </Box>
@@ -535,8 +558,8 @@ export default function HomePage() {
         justifyContent="space-between"
         flexWrap="wrap"
         gap={2}
-        mb={2}
-        p={2}
+        mb={1.5}
+        p={1.5}
         sx={{
           backgroundColor: "rgba(255, 255, 255, 0.9)",
           borderRadius: 2,
@@ -546,26 +569,10 @@ export default function HomePage() {
         }}
       >
         <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
-          <FormControl size="small" sx={{ minWidth: 300 }}>
-            <InputLabel id="repo-select-label">选择代码库</InputLabel>
-            <Select
-              labelId="repo-select-label"
-              value={selectedRepo}
-              label="选择代码库"
-              onChange={handleRepoChange}
-              disabled={loading.repos}
-            >
-              {repos.map((repo) => (
-                <MenuItem key={repo.id} value={repo.id}>
-                  {repo.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
+          {/* 仓库选择器已移动到全局顶部，这里仅保留合并检测相关控件 */}
           <Typography
             variant="subtitle2"
-            sx={{ minWidth: "auto", marginLeft: "48px", fontWeight: "bold" }}
+            sx={{ minWidth: "auto", fontWeight: "bold" }}
           >
             合并检测：
           </Typography>
@@ -619,10 +626,10 @@ export default function HomePage() {
 
       <Paper
         sx={{
-          height: "calc(100dvh - 280px)",
           width: "100%",
           mt: 2,
           minHeight: 400,
+          maxHeight: "calc(100vh - 280px)", // 改为最大高度，允许内容少时自适应
           backgroundColor: "rgba(255, 255, 255, 0.95)",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
           borderRadius: 2,
