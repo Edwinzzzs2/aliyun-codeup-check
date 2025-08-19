@@ -70,49 +70,49 @@ export default function HomePage() {
     perPage = rowsPerPage,
     search = searchTerm
   ) => {
-    // if (!token) return showMessage("请先配置 Token", "error");
+    if (!token) return showMessage("请先配置 Token", "error");
 
-    // setLoading((prev) => ({ ...prev, branches: true }));
-    // try {
-    //   const params = new URLSearchParams({
-    //     token,
-    //     orgId,
-    //     repoId,
-    //     page: pageNum.toString(),
-    //     perPage: perPage.toString(),
-    //     sort: "updated_desc",
-    //   });
-    //   if (search) params.append("search", search);
+    setLoading((prev) => ({ ...prev, branches: true }));
+    try {
+      const params = new URLSearchParams({
+        token,
+        orgId,
+        repoId,
+        page: pageNum.toString(),
+        perPage: perPage.toString(),
+        sort: "updated_desc",
+      });
+      if (search) params.append("search", search);
 
-    //   const res = await fetch(`/api/codeup/branches?${params.toString()}`);
+      const res = await fetch(`/api/codeup/branches?${params.toString()}`);
 
-    //   if (!res.ok) {
-    //     throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    //   }
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
 
-    //   const data = await res.json();
+      const data = await res.json();
 
-    //   // 兼容两种返回结构
-    //   let list = [];
-    //   let total = 0;
-    //   if (Array.isArray(data)) {
-    //     list = data;
-    //     total = data.length;
-    //   } else if (data?.result) {
-    //     list = Array.isArray(data.result) ? data.result : [];
-    //     total = data.total ?? data.totalCount ?? list.length;
-    //   }
+      // 兼容两种返回结构
+      let list = [];
+      let total = 0;
+      if (Array.isArray(data)) {
+        list = data;
+        total = data.length;
+      } else if (data?.result) {
+        list = Array.isArray(data.result) ? data.result : [];
+        total = data.total ?? data.totalCount ?? list.length;
+      }
 
-    //   setBranches(list);
-    //   setTotalCount(total);
-    // } catch (error) {
-    //   console.error("获取分支失败:", error);
-    //   setBranches([]);
-    //   setTotalCount(0);
-    //   showMessage("获取分支失败", "error");
-    // } finally {
-    //   setLoading((prev) => ({ ...prev, branches: false }));
-    // }
+      setBranches(list);
+      setTotalCount(total);
+    } catch (error) {
+      console.error("获取分支失败:", error);
+      setBranches([]);
+      setTotalCount(0);
+      showMessage("获取分支失败", "error");
+    } finally {
+      setLoading((prev) => ({ ...prev, branches: false }));
+    }
   };
 
   // 搜索事件（300ms 防抖）
@@ -175,7 +175,9 @@ export default function HomePage() {
       });
 
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const errorData = await res.json();
+        showMessage(`检测合并状态失败: ${errorData.errorDescription || res.errorMessage}`, "error");
+        return;
       }
 
       const data = await res.json();
@@ -448,8 +450,8 @@ export default function HomePage() {
         }}
       >
         <DataGrid
-          rows={[]}
-          columns={[]}
+          rows={branches}
+          columns={columns}
           getRowId={(row) => row.name}
           pagination
           paginationModel={{ page: page, pageSize: rowsPerPage }}
