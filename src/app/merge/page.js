@@ -1,36 +1,43 @@
 'use client'
-import { Autocomplete, Button, TextField, Grid, Paper, Box, Typography } from '@mui/material';
+import { Autocomplete, Button, TextField, Grid, Paper, Box, Typography, CircularProgress } from '@mui/material';
+import ErrorMessage from '../../components/ErrorMessage';
 import { useState, useEffect, useRef } from 'react';
+import { useTokenConfig, useTokenMessage, useRepoChange } from '../../contexts/TokenContext';
 
 export default function MergeRequest() {
+  const { token, orgId } = useTokenConfig();
+  const { selectedRepo, repoChangeTimestamp } = useRepoChange();
+  const { showMessage } = useTokenMessage();
   const [sourceBranch, setSourceBranch] = useState(null);
   const [targetBranch, setTargetBranch] = useState(null);
   const [sourceBranches, setSourceBranches] = useState([]);
   const [targetBranches, setTargetBranches] = useState([]);
   const [loadingSource, setLoadingSource] = useState(false);
   const [loadingTarget, setLoadingTarget] = useState(false);
-  const [token, setToken] = useState("");
-  const [orgId, setOrgId] = useState("");
-  const [repoId, setRepoId] = useState("");
+  const [creatingMR, setCreatingMR] = useState(false);
   const [searchSource, setSearchSource] = useState("");
   const [searchTarget, setSearchTarget] = useState("");
+  const [errorMessage, setErrorMessage] = useState(null);
   const searchTimerRef = useRef(null);
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("codeup_token");
-    const savedOrgId = localStorage.getItem("codeup_orgid") || "5f9a23913a5188f27f3f344b";
-    const selected = localStorage.getItem("codeup_selected_repo");
-    if (savedToken) setToken(savedToken);
-    if (savedOrgId) setOrgId(savedOrgId);
-    if (selected) setRepoId(selected);
-  }, []);
+    // 监听仓库变更，清空分支选择和数据
+    if (selectedRepo && repoChangeTimestamp) {
+      setSourceBranch(null);
+      setTargetBranch(null);
+      setSourceBranches([]);
+      setTargetBranches([]);
+      setSearchSource("");
+      setSearchTarget("");
+    }
+  }, [selectedRepo, repoChangeTimestamp]);
 
   const fetchBranches = async (kind, q = "") => {
-    if (!token || !repoId) return;
+    if (!token || !selectedRepo) return;
     if (kind === 'source') setLoadingSource(true);
     else setLoadingTarget(true);
 
-    const params = new URLSearchParams({ token, orgId, repoId, search: q });
+    const params = new URLSearchParams({ token, orgId, repoId: selectedRepo, search: q });
     try {
       const res = await fetch(`/api/codeup/branches?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -51,11 +58,11 @@ export default function MergeRequest() {
   };
 
   useEffect(() => {
-    if (token && repoId) {
+    if (token && selectedRepo) {
         fetchBranches("source", "");
         fetchBranches("target", "");
     }
-  }, [token, orgId, repoId]);
+  }, [token, orgId, selectedRepo]);
 
   const handleSearchChange = (kind, value) => {
     if (kind === 'source') setSearchSource(value);
@@ -67,10 +74,56 @@ export default function MergeRequest() {
     }, 400);
   };
 
-  const handleCreateMergeRequest = () => {
-    // Handle merge request creation logic here
-    console.log('Source Branch:', sourceBranch);
-    console.log('Target Branch:', targetBranch);
+  const handleCreateMergeRequest = async () => {
+    if (!sourceBranch || !targetBranch) {
+      showMessage("请选择源分支和目标分支", "warning");
+      return;
+    }
+    setCreatingMR(true);
+    try {
+      const payload = {
+        token,
+        orgId,
+        repoId: selectedRepo,
+        sourceBranch: sourceBranch.name,
+        targetBranch: targetBranch.name,
+        title: `Merge ${sourceBranch.name} -> ${targetBranch.name}`,
+        description: `Created by aliyun-codeup-check at ${new Date().toLocaleString()}`,
+      };
+
+      const res = await fetch("/api/codeup/change-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        let errMsg = `HTTP ${res.status}: ${res.statusText}`;
+        try {
+          const err = await res.json();
+          errMsg = err?.message || errMsg;
+        } catch (_) {}
+        throw new Error(errMsg);
+      }
+
+      const data = await res.json();
+      const id =
+        data?.localId ?? data?.result?.localId ?? data?.iid ?? data?.result?.id;
+      showMessage(
+        `合并请求创建成功${id ? `（ID: ${id}）` : ""}`,
+        "success"
+      );
+      
+      // 创建成功后清空选择
+      setSourceBranch(null);
+      setTargetBranch(null);
+      setErrorMessage(null); // 清除旧错误
+    } catch (error) {
+      console.error("创建合并请求失败:", error);
+      setErrorMessage(error.errorMessage || "发生未知错误"); // 设置错误信息
+    } finally {
+      setCreatingMR(false);
+    }
   };
 
   return (
@@ -128,11 +181,13 @@ export default function MergeRequest() {
           variant="contained" 
           onClick={handleCreateMergeRequest}
           sx={{ minWidth: 100 }}
-          disabled={!sourceBranch || !targetBranch}
+          disabled={!sourceBranch || !targetBranch || creatingMR}
+          startIcon={creatingMR ? <CircularProgress size={16} /> : null}
         >
-          新建合并
+          {creatingMR ? "创建中..." : "新建合并"}
         </Button>
       </Box>
+      <ErrorMessage error={errorMessage} onClear={() => setErrorMessage(null)} />
     </Paper>
   );
 }

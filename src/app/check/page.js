@@ -1,55 +1,30 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   Box,
   Button,
   TextField,
   Typography,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Paper,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Snackbar,
-  Alert,
-  InputAdornment,
-  IconButton,
   CircularProgress,
   Backdrop,
   LinearProgress,
+  InputAdornment,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import {
-  Visibility,
-  VisibilityOff,
-  Settings,
   Search,
-  Sync,
-  ExpandMore,
 } from "@mui/icons-material";
 import moment from "moment";
+import { useTokenConfig, useTokenMessage, useRepoChange, useGlobalLoading } from "../../contexts/TokenContext";
 
 export default function HomePage() {
-  const [token, setToken] = useState("");
-  const [orgId, setOrgId] = useState("5f9a23913a5188f27f3f344b");
-  const [selectedRepo, setSelectedRepo] = useState("");
+  const { token, orgId } = useTokenConfig();
+  const { showMessage } = useTokenMessage();
+  const { selectedRepo, repoChangeTimestamp } = useRepoChange();
+  const { globalLoading } = useGlobalLoading();
   const [branches, setBranches] = useState([]);
-  const [configDialog, setConfigDialog] = useState(false);
-  const [tempToken, setTempToken] = useState("");
-  const [tempOrgId, setTempOrgId] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-
-  const [showTokenGuide, setShowTokenGuide] = useState(false);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    severity: "info",
-  });
 
   // 分页相关状态
   const [page, setPage] = useState(0);
@@ -69,33 +44,12 @@ export default function HomePage() {
     merge: false,
   });
 
-  // 创建合并请求的逐行loading状态
-  const [creatingCR, setCreatingCR] = useState({});
-
-  // 页面加载时检查本地存储
-  useEffect(() => {
-    const savedToken = localStorage.getItem("codeup_token");
-    const savedOrgId =
-      localStorage.getItem("codeup_orgid") || "5f9a23913a5188f27f3f344b";
-    const savedRepo = localStorage.getItem("codeup_selected_repo");
-
-    if (savedToken) {
-      setToken(savedToken);
-      setOrgId(savedOrgId);
-      setTempToken(savedToken);
-      setTempOrgId(savedOrgId);
-    }
-    
-    if (savedRepo) {
-      setSelectedRepo(savedRepo);
-    }
-  }, []);
+  // 移除创建合并请求相关状态，该功能已移至代码合并页面
 
   // 监听全局代码库选择变化
   useEffect(() => {
-    const handleRepoChange = (event) => {
-      const { repoId } = event.detail;
-      setSelectedRepo(repoId);
+    // 监听仓库变更
+    if (selectedRepo && repoChangeTimestamp) {
       // 清空当前分支数据和状态
       setBranches([]);
       setPage(0);
@@ -103,68 +57,11 @@ export default function HomePage() {
       setSelectedBranchNames([]);
       setMergeStatus({});
       // 如果有选择的代码库且有token，立即获取分支
-      if (repoId && token) {
-        fetchBranches(repoId, 1, rowsPerPage, "");
+    }
+    if (token && selectedRepo) {
+        fetchBranches(selectedRepo, 1, rowsPerPage, "");
       }
-    };
-
-    const handleConfigDialog = () => {
-      setConfigDialog(true);
-    };
-
-    // 添加事件监听
-    window.addEventListener("repoChange", handleRepoChange);
-    window.addEventListener("openConfigDialog", handleConfigDialog);
-
-    // 清理事件监听
-    return () => {
-      window.removeEventListener("repoChange", handleRepoChange);
-      window.removeEventListener("openConfigDialog", handleConfigDialog);
-    };
-  }, [token, rowsPerPage]);
-
-  const showMessage = (message, severity = "info") => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const handleConfigSave = () => {
-    if (!tempToken.trim()) {
-      showMessage("请输入 Token", "error");
-      return;
-    }
-
-    // 保存到本地存储
-    localStorage.setItem("codeup_token", tempToken);
-    localStorage.setItem("codeup_orgid", tempOrgId);
-
-    // 更新状态
-    setToken(tempToken);
-    setOrgId(tempOrgId);
-    setConfigDialog(false);
-
-    showMessage("配置保存成功", "success");
-  };
-
-  const handleConfigCancel = () => {
-    if (!token) {
-      // 如果没有已保存的token，不允许取消
-      showMessage("请先配置 Token", "warning");
-      return;
-    }
-
-    // 恢复原值
-    setTempToken(token);
-    setTempOrgId(orgId);
-    setConfigDialog(false);
-  };
-
-  const openConfigDialog = () => {
-    setTempToken(token);
-    setTempOrgId(orgId);
-    setConfigDialog(true);
-  };
-
-  // fetchRepos函数已移至全局layout-provider.js中管理
+  }, [selectedRepo, repoChangeTimestamp, token]);
 
   // 带分页与搜索的分支请求
   const fetchBranches = async (
@@ -173,52 +70,50 @@ export default function HomePage() {
     perPage = rowsPerPage,
     search = searchTerm
   ) => {
-    if (!token) return showMessage("请先配置 Token", "error");
+    // if (!token) return showMessage("请先配置 Token", "error");
 
-    setLoading((prev) => ({ ...prev, branches: true }));
-    try {
-      const params = new URLSearchParams({
-        token,
-        orgId,
-        repoId,
-        page: pageNum.toString(),
-        perPage: perPage.toString(),
-        sort: "updated_desc",
-      });
-      if (search) params.append("search", search);
+    // setLoading((prev) => ({ ...prev, branches: true }));
+    // try {
+    //   const params = new URLSearchParams({
+    //     token,
+    //     orgId,
+    //     repoId,
+    //     page: pageNum.toString(),
+    //     perPage: perPage.toString(),
+    //     sort: "updated_desc",
+    //   });
+    //   if (search) params.append("search", search);
 
-      const res = await fetch(`/api/codeup/branches?${params.toString()}`);
+    //   const res = await fetch(`/api/codeup/branches?${params.toString()}`);
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      }
+    //   if (!res.ok) {
+    //     throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    //   }
 
-      const data = await res.json();
+    //   const data = await res.json();
 
-      // 兼容两种返回结构
-      let list = [];
-      let total = 0;
-      if (Array.isArray(data)) {
-        list = data;
-        total = data.length;
-      } else if (data?.result) {
-        list = Array.isArray(data.result) ? data.result : [];
-        total = data.total ?? data.totalCount ?? list.length;
-      }
+    //   // 兼容两种返回结构
+    //   let list = [];
+    //   let total = 0;
+    //   if (Array.isArray(data)) {
+    //     list = data;
+    //     total = data.length;
+    //   } else if (data?.result) {
+    //     list = Array.isArray(data.result) ? data.result : [];
+    //     total = data.total ?? data.totalCount ?? list.length;
+    //   }
 
-      setBranches(list);
-      setTotalCount(total);
-    } catch (error) {
-      console.error("获取分支失败:", error);
-      setBranches([]);
-      setTotalCount(0);
-      showMessage("获取分支失败", "error");
-    } finally {
-      setLoading((prev) => ({ ...prev, branches: false }));
-    }
+    //   setBranches(list);
+    //   setTotalCount(total);
+    // } catch (error) {
+    //   console.error("获取分支失败:", error);
+    //   setBranches([]);
+    //   setTotalCount(0);
+    //   showMessage("获取分支失败", "error");
+    // } finally {
+    //   setLoading((prev) => ({ ...prev, branches: false }));
+    // }
   };
-
-  // handleRepoChange和自动刷新仓库列表功能已移至全局layout-provider.js中管理
 
   // 搜索事件（300ms 防抖）
   const handleSearchChange = (event) => {
@@ -328,65 +223,7 @@ export default function HomePage() {
     }
   };
 
-  // 单行创建合并请求
-  const handleCreateChangeRequest = async (branchName) => {
-    if (!token) {
-      showMessage("请先配置 Token", "error");
-      return;
-    }
-    if (!selectedRepo) {
-      showMessage("请选择代码库", "warning");
-      return;
-    }
-    const target = (targetBranch || "").trim();
-    if (!target) {
-      showMessage("请输入目标分支", "warning");
-      return;
-    }
-
-    // 设置当前分支loading
-    setCreatingCR((prev) => ({ ...prev, [branchName]: true }));
-
-    try {
-      const payload = {
-        token,
-        orgId,
-        repoId: selectedRepo,
-        sourceBranch: branchName,
-        targetBranch: target,
-        title: `Merge ${branchName} -> ${target}`,
-        description: `Created by aliyun-codeup-check at ${new Date().toLocaleString()}`,
-      };
-
-      const res = await fetch("/api/codeup/change-requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        let errMsg = `HTTP ${res.status}: ${res.statusText}`;
-        try {
-          const err = await res.json();
-          errMsg = err?.message || errMsg;
-        } catch (_) {}
-        throw new Error(errMsg);
-      }
-
-      const data = await res.json();
-      const id =
-        data?.localId ?? data?.result?.localId ?? data?.iid ?? data?.result?.id;
-      showMessage(
-        `合并请求创建成功${id ? `（ID: ${id}）` : ""}`,
-        "success"
-      );
-    } catch (error) {
-      console.error("创建合并请求失败:", error);
-      showMessage(`创建合并请求失败：${error.message || error}`, "error");
-    } finally {
-      setCreatingCR((prev) => ({ ...prev, [branchName]: false }));
-    }
-  };
+  // handleCreateChangeRequest函数已移除，该功能已移至代码合并页面
 
   // DataGrid 列定义
   const columns = [
@@ -399,7 +236,6 @@ export default function HomePage() {
       renderCell: (params) => {
         const branchName = params.row.name;
         const webUrl = params.row.webUrl;
-        console.log(params, 22222222222222);
         if (webUrl) {
           return (
             <Typography
@@ -511,31 +347,7 @@ export default function HomePage() {
         );
       },
     },
-    // 新增操作列：单行创建合并请求
-    {
-      field: "actions",
-      headerName: "操作",
-      width: 120,
-      sortable: false,
-      filterable: false,
-      renderCell: (params) => {
-        const branchName = params.row.name;
-        const busy = !!creatingCR[branchName];
-        const disabled = busy || !selectedRepo || !token || !targetBranch.trim();
-        return (
-          <Button
-            variant="outlined"
-            size="small"
-            disabled={disabled}
-            onClick={() => handleCreateChangeRequest(branchName)}
-            sx={{ minWidth: 96 }}
-          >
-            {busy ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
-            去合并
-          </Button>
-        );
-      },
-    },
+    // 操作列已移除，合并功能已移至代码合并页面
   ];
 
   return (
@@ -636,8 +448,8 @@ export default function HomePage() {
         }}
       >
         <DataGrid
-          rows={branches}
-          columns={columns}
+          rows={[]}
+          columns={[]}
           getRowId={(row) => row.name}
           pagination
           paginationModel={{ page: page, pageSize: rowsPerPage }}
@@ -698,7 +510,7 @@ export default function HomePage() {
       {/* 全局Loading遮罩 */}
       <Backdrop
         sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
-        open={loading.global}
+        open={globalLoading}
       >
         <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
           <CircularProgress color="inherit" />
@@ -706,174 +518,7 @@ export default function HomePage() {
         </Box>
       </Backdrop>
 
-      {/* 配置弹窗 */}
-      <Dialog
-        open={configDialog}
-        onClose={handleConfigCancel}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>配置阿里云 CodeUp Token</DialogTitle>
-        <DialogContent>
-          {/* Token获取指引区域 */}
-          <Box
-            sx={{
-              mb: 3,
-              p: 2,
-              backgroundColor: showTokenGuide ? "#e3f2fd" : "#f5f5f5",
-              borderRadius: 2,
-              border: "1px solid #e1ecf7",
-              transition: "all 0.3s ease",
-            }}
-          >
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                cursor: "pointer",
-              }}
-              onClick={() => setShowTokenGuide(!showTokenGuide)}
-            >
-              <Typography
-                variant="subtitle2"
-                sx={{
-                  color: "#1565c0",
-                  fontWeight: "bold",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                }}
-              >
-                📋 Token 获取指引
-              </Typography>
-              <ExpandMore
-                sx={{
-                  transform: showTokenGuide ? "rotate(180deg)" : "rotate(0deg)",
-                  transition: "transform 0.3s ease",
-                  color: "#1565c0",
-                }}
-              />
-            </Box>
 
-            {showTokenGuide && (
-              <Box sx={{ mt: 2, animation: "fadeIn 0.3s ease" }}>
-                <Typography variant="body2" sx={{ mb: 2, color: "#666" }}>
-                  <strong>步骤 1:</strong> 访问阿里云 DevOps 个人访问令牌页面
-                </Typography>
-                <Box
-                  sx={{
-                    mb: 2,
-                    p: 2,
-                    backgroundColor: "#fff",
-                    borderRadius: 1,
-                    border: "1px solid #ddd",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                  }}
-                >
-                  <Typography
-                    variant="body2"
-                    component="a"
-                    href="https://account-devops.aliyun.com/settings/personalAccessToken"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    sx={{
-                      color: "#1976d2",
-                      textDecoration: "none",
-                      fontWeight: 500,
-                      wordBreak: "break-all",
-                      "&:hover": {
-                        textDecoration: "underline",
-                        color: "#0d47a1",
-                      },
-                    }}
-                  >
-                    https://account-devops.aliyun.com/settings/personalAccessToken
-                  </Typography>
-                </Box>
-                <Typography variant="body2" sx={{ color: "#666", mb: 1 }}>
-                  <strong>步骤 2:</strong>{" "}
-                  创建新的个人访问令牌，并为代码管理分配
-                  <strong>最低只读权限</strong>
-                </Typography>
-                <Typography variant="body2" sx={{ color: "#666", mb: 1 }}>
-                  <strong>步骤 3:</strong> 复制生成的Token并粘贴到下方输入框中
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{ color: "#f57c00", fontWeight: "bold" }}
-                >
-                  ⚠️ 注意：Token只会显示一次，请妥善保存
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: "#4caf50",
-                    fontWeight: "bold",
-                    display: "block",
-                    mt: 1,
-                  }}
-                >
-                  🔒 隐私保护：Token仅存储在您的浏览器本地，服务器不存储任何数据
-                </Typography>
-              </Box>
-            )}
-          </Box>
-
-          <TextField
-            margin="normal"
-            label="CodeUp Token"
-            type={showPassword ? "text" : "password"}
-            value={tempToken}
-            onChange={(e) => setTempToken(e.target.value)}
-            fullWidth
-            placeholder="请输入阿里云 CodeUp Token"
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    onClick={() => setShowPassword((p) => !p)}
-                    edge="end"
-                  >
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          <TextField
-            margin="normal"
-            label="组织 OrgId（可选）"
-            value={tempOrgId}
-            onChange={(e) => setTempOrgId(e.target.value)}
-            fullWidth
-            placeholder="不填则使用默认组织"
-            helperText="默认使用5f9a23913a5188f27f3f344b"
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleConfigCancel}>取消</Button>
-          <Button variant="contained" onClick={handleConfigSave}>
-            保存
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: "100%" }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }
