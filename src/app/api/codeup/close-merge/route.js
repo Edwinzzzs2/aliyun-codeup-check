@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 
-// 合并请求API
+// 关闭合并请求API
 export async function POST(request) {
   try {
     const body = await request.json();
-    console.log('合并API接收到的请求体:', body);
+    console.log('关闭合并请求API接收到的请求体:', body);
     
-    const { organizationId, repositoryId, localId, mergeMessage = '', mergeType = 'no-fast-forward', removeSourceBranch = false } = body;
+    const { organizationId, repositoryId, localId } = body;
     
     // 从请求头获取token
     const token = request.headers.get('x-yunxiao-token');
@@ -35,15 +35,8 @@ export async function POST(request) {
       );
     }
     
-    // 构建阿里云CodeUp API URL
-    const apiUrl = `https://openapi-rdc.aliyuncs.com/oapi/v1/codeup/organizations/${organizationId}/repositories/${repositoryId}/changeRequests/${localId}/merge`;
-    
-    // 准备请求体
-    const requestBody = {
-      mergeMessage,
-      mergeType,
-      removeSourceBranch
-    };
+    // 构建阿里云CodeUp API URL - 基于最新文档的接口路径
+    const apiUrl = `https://openapi-rdc.aliyuncs.com/oapi/v1/codeup/organizations/${organizationId}/repositories/${repositoryId}/changeRequests/${localId}/close`;
     
     // 调用阿里云CodeUp API
     const response = await fetch(apiUrl, {
@@ -51,8 +44,7 @@ export async function POST(request) {
       headers: {
         'Content-Type': 'application/json',
         'x-yunxiao-token': token
-      },
-      body: JSON.stringify(requestBody)
+      }
     });
     
     const data = await response.json();
@@ -61,11 +53,12 @@ export async function POST(request) {
       console.error('CodeUp API错误:', data);
       return NextResponse.json(
         { 
-          error: '合并请求失败',
+          error: '关闭合并请求失败',
           details: data.errorDescription || data.errorMessage || '未知错误',
           errorDescription: data.errorDescription,
           errorMessage: data.errorMessage,
-          code: data.code
+          errorCode: data.errorCode,
+          requestId: data.requestId
         },
         { status: response.status }
       );
@@ -73,16 +66,19 @@ export async function POST(request) {
     
     return NextResponse.json({
       success: true,
-      message: '合并请求成功',
-      data
+      message: '关闭合并请求成功',
+      data: {
+        result: data.result?.result || true,
+        requestId: data.requestId
+      }
     });
     
   } catch (error) {
-    console.error('合并请求API错误:', error);
+    console.error('关闭合并请求API错误:', error);
     return NextResponse.json(
       { 
         error: '服务器内部错误',
-        errorDescription: '合并请求处理时发生异常',
+        errorDescription: '关闭合并请求处理时发生异常',
         errorMessage: error.message,
         details: error.message,
       },

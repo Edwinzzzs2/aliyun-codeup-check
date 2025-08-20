@@ -11,13 +11,17 @@ import {
   Backdrop,
   LinearProgress,
   InputAdornment,
+  IconButton,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
-import {
-  Search,
-} from "@mui/icons-material";
+import { Search, Refresh } from "@mui/icons-material";
 import moment from "moment";
-import { useTokenConfig, useTokenMessage, useRepoChange, useGlobalLoading } from "../../contexts/TokenContext";
+import {
+  useTokenConfig,
+  useTokenMessage,
+  useRepoChange,
+  useGlobalLoading,
+} from "../../contexts/TokenContext";
 
 export default function HomePage() {
   const { token, orgId } = useTokenConfig();
@@ -59,8 +63,8 @@ export default function HomePage() {
       // 如果有选择的代码库且有token，立即获取分支
     }
     if (token && selectedRepo) {
-        fetchBranches(selectedRepo, 1, rowsPerPage, "");
-      }
+      fetchBranches(selectedRepo, 1, rowsPerPage, "");
+    }
   }, [selectedRepo, repoChangeTimestamp, token]);
 
   // 带分页与搜索的分支请求
@@ -176,7 +180,12 @@ export default function HomePage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        showMessage(`检测合并状态失败: ${errorData.errorDescription || res.errorMessage}`, "error");
+        showMessage(
+          `检测合并状态失败: ${
+            errorData.errorDescription || errorData.errorMessage
+          }`,
+          "error"
+        );
         return;
       }
 
@@ -360,9 +369,7 @@ export default function HomePage() {
     >
       {/* Loading进度条 - 始终保留空间，避免页面抖动 */}
       <Box sx={{ width: "100%", height: "4px" }}>
-        {(loading.merge || loading.branches) && (
-          <LinearProgress />
-        )}
+        {(loading.merge || loading.branches) && <LinearProgress />}
       </Box>
       {/* 选择代码库 + 合并状态检测区域 + 搜索 */}
       <Paper
@@ -439,74 +446,112 @@ export default function HomePage() {
       <Paper
         sx={{
           width: "100%",
-          mt: 1,
-          height: "calc(100vh - 280px)", // 固定高度
+          mt: 3,
+          p: 2,
           backgroundColor: "rgba(255, 255, 255, 0.95)",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
           borderRadius: 2,
           border: "1px solid rgba(255,255,255,0.3)",
           backdropFilter: "blur(10px)",
-          overflow: "hidden", // 防止内容溢出
+          height: "calc(100vh - 220px)", // 固定高度
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
         }}
       >
-        <DataGrid
-          rows={branches}
-          columns={columns}
-          getRowId={(row) => row.name}
-          pagination
-          paginationModel={{ page: page, pageSize: rowsPerPage }}
-          paginationMode="server"
-          rowCount={totalCount}
-          onPaginationModelChange={(model) => {
-            const { page: newPage, pageSize: newPageSize } = model;
-            if (newPageSize !== rowsPerPage) {
-              setRowsPerPage(newPageSize);
-              setPage(0);
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            mb: 2,
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: "bold" }}>
+            分支列表
+          </Typography>
+          <IconButton
+            onClick={() => {
               if (selectedRepo) {
-                fetchBranches(selectedRepo, 1, newPageSize, searchTerm);
+                fetchBranches(selectedRepo, page + 1, rowsPerPage, searchTerm);
               }
-            } else if (newPage !== page) {
-              setPage(newPage);
-              if (selectedRepo) {
-                fetchBranches(
-                  selectedRepo,
-                  newPage + 1,
-                  rowsPerPage,
-                  searchTerm
-                );
+            }}
+            disabled={loading.branches}
+            size="small"
+            sx={{
+              color: "primary.main",
+              "&:hover": {
+                backgroundColor: "primary.light",
+                color: "white",
+              },
+            }}
+            title="刷新列表"
+          >
+            <Refresh />
+          </IconButton>
+        </Box>
+
+        <Box sx={{ flex: 1, minHeight: 0 }}>
+          <DataGrid
+            rows={branches}
+            columns={columns}
+            getRowId={(row) => row.name}
+            pagination
+            paginationModel={{ page: page, pageSize: rowsPerPage }}
+            paginationMode="server"
+            rowCount={totalCount}
+            onPaginationModelChange={(model) => {
+              const { page: newPage, pageSize: newPageSize } = model;
+              if (newPageSize !== rowsPerPage) {
+                setRowsPerPage(newPageSize);
+                setPage(0);
+                if (selectedRepo) {
+                  fetchBranches(selectedRepo, 1, newPageSize, searchTerm);
+                }
+              } else if (newPage !== page) {
+                setPage(newPage);
+                if (selectedRepo) {
+                  fetchBranches(
+                    selectedRepo,
+                    newPage + 1,
+                    rowsPerPage,
+                    searchTerm
+                  );
+                }
               }
-            }
-          }}
-          pageSizeOptions={[25, 50, 100]}
-          checkboxSelection
-          disableRowSelectionOnClick
-          rowSelectionModel={selectedBranchNames}
-          onRowSelectionModelChange={(model) => setSelectedBranchNames(model)}
-          sx={{ 
-            border: 0,
-            width: "100%",
-            "& .MuiDataGrid-main": {
-              overflow: "hidden",
-            },
-            "& .MuiDataGrid-virtualScroller": {
-              overflow: "auto",
-            },
-          }}
-          localeText={{
-            noRowsLabel: loading.branches ? "加载中..." : "暂无数据",
-            MuiTablePagination: {
-              labelRowsPerPage: "每页显示",
-              labelDisplayedRows: ({ from, to, count }) =>
-                `${from}-${to} 共 ${count} 条`,
-            },
-          }}
-          slotProps={{
-            pagination: {
-              showFirstButton: true,
-              showLastButton: true,
-            },
-          }}
-        />
+            }}
+            pageSizeOptions={[25, 50, 100]}
+            checkboxSelection
+            disableRowSelectionOnClick
+            rowSelectionModel={selectedBranchNames}
+            onRowSelectionModelChange={(model) => setSelectedBranchNames(model)}
+            sx={{
+              border: 0,
+              width: "100%",
+              height: "100%",
+              "& .MuiDataGrid-main": {
+                overflow: "hidden",
+              },
+              "& .MuiDataGrid-virtualScroller": {
+                overflow: "auto",
+              },
+            }}
+            localeText={{
+              noRowsLabel: loading.branches ? "加载中..." : "暂无数据",
+              MuiTablePagination: {
+                labelRowsPerPage: "每页显示",
+                labelDisplayedRows: ({ from, to, count }) =>
+                  `${from}-${to} 共 ${count} 条`,
+              },
+            }}
+            slotProps={{
+              pagination: {
+                showFirstButton: true,
+                showLastButton: true,
+              },
+            }}
+          />
+        </Box>
       </Paper>
 
       {/* 全局Loading遮罩 */}
@@ -519,8 +564,6 @@ export default function HomePage() {
           <Typography variant="h6">初始化中...</Typography>
         </Box>
       </Backdrop>
-
-
     </Box>
   );
 }

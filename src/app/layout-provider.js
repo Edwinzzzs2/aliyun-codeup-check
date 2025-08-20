@@ -46,7 +46,7 @@ const drawerWidth = 200;
 
 const menuItems = [
   {
-    text: "检测合并",
+    text: "合并状态",
     icon: <Assessment />,
     path: "/check",
   },

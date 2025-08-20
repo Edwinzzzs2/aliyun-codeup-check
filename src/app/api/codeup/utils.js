@@ -92,6 +92,22 @@ export async function makeCodeupApiRequest({
 
     const data = await response.json();
 
+    // 如果请求失败，返回标准化的错误响应
+    if (!response.ok) {
+      return new Response(
+        JSON.stringify({
+          error: 'API请求失败',
+          errorDescription: data.errorDescription,
+          errorMessage: data.errorMessage,
+          details: data.errorDescription || data.errorMessage || data.message || '未知错误'
+        }),
+        {
+          status: response.status,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
     // 根据配置决定是否包含分页信息
     let responseData;
     if (includePagination) {

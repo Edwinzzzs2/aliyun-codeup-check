@@ -113,13 +113,34 @@ export async function POST(request) {
       data = { message: 'No JSON response body' };
     }
 
+    // 如果请求失败，返回标准化的错误响应
+    if (!res.ok) {
+      return new Response(
+        JSON.stringify({
+          error: '创建合并请求失败',
+          errorDescription: data.errorDescription,
+          errorMessage: data.errorMessage,
+          details: data.errorDescription || data.errorMessage || data.message || '未知错误'
+        }),
+        {
+          status: res.status,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     return new Response(JSON.stringify(data), {
       status: res.status,
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (e) {
     return new Response(
-      JSON.stringify({ error: '创建合并请求异常', details: e.message }),
+      JSON.stringify({ 
+        error: '创建合并请求异常', 
+        errorDescription: '创建合并请求时发生异常',
+        errorMessage: e.message,
+        details: e.message 
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
