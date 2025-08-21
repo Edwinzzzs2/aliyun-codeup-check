@@ -48,8 +48,6 @@ export default function HomePage() {
     merge: false,
   });
 
-  // 移除创建合并请求相关状态，该功能已移至代码合并页面
-
   // 监听全局代码库选择变化
   useEffect(() => {
     // 监听仓库变更

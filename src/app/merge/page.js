@@ -13,48 +13,72 @@ import {
   IconButton,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ErrorIcon from "@mui/icons-material/Error";
 import { DataGrid } from "@mui/x-data-grid";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import moment from "moment";
 import {
   useTokenConfig,
   useTokenMessage,
   useRepoChange,
 } from "../../contexts/TokenContext";
+import CompareDialog from "./CompareDialog";
+
 export default function MergeRequest() {
   const { token, orgId } = useTokenConfig();
   const { selectedRepo, repoChangeTimestamp } = useRepoChange();
   const { showMessage } = useTokenMessage();
-  const [sourceBranch, setSourceBranch] = useState(null);
-  const [targetBranch, setTargetBranch] = useState(null);
-  const [sourceBranches, setSourceBranches] = useState([]);
-  const [targetBranches, setTargetBranches] = useState([]);
-  const [loadingSource, setLoadingSource] = useState(false);
-  const [loadingTarget, setLoadingTarget] = useState(false);
-  const [creatingMR, setCreatingMR] = useState(false);
-  const [searchSource, setSearchSource] = useState("");
-  const [searchTarget, setSearchTarget] = useState("");
+
+  // 分支选择状态 - 合并为一个对象
+  const [branchState, setBranchState] = useState({
+    sourceBranch: null,
+    targetBranch: null,
+    sourceBranches: [],
+    targetBranches: [],
+    searchSource: "",
+    searchTarget: "",
+  });
+
+  // 加载状态 - 合并为一个对象
+  const [loadingState, setLoadingState] = useState({
+    source: false,
+    target: false,
+    creating: false,
+    mrList: false,
+  });
+
   const searchTimerRef = useRef(null);
 
   // 合并请求列表相关状态
   const [mergeRequests, setMergeRequests] = useState([]);
-  const [loadingMRList, setLoadingMRList] = useState(false);
   const [mrPage, setMrPage] = useState(1);
   const [mrTotal, setMrTotal] = useState(0);
   const [mrPerPage, setMrPerPage] = useState(10);
-  const [mergingIds, setMergingIds] = useState(new Set());
-  const [closingIds, setClosingIds] = useState(new Set());
-  const [checkingMergeStatus, setCheckingMergeStatus] = useState(false);
-  const [canCreateMerge, setCanCreateMerge] = useState(false);
+  const [operatingIds, setOperatingIds] = useState({
+    merging: new Set(),
+    closing: new Set(),
+  });
+
+  // 代码比较弹窗状态
+  const [compareDialogOpen, setCompareDialogOpen] = useState(false);
+
+  // 派生状态 - 使用 useMemo 计算
+  const canCreateMerge = useMemo(() => {
+    return branchState.sourceBranch && branchState.targetBranch;
+  }, [branchState.sourceBranch, branchState.targetBranch]);
 
   useEffect(() => {
     // 监听仓库变更，清空分支选择和数据
     if (selectedRepo && repoChangeTimestamp) {
-      setSourceBranch(null);
-      setTargetBranch(null);
-      setSourceBranches([]);
-      setTargetBranches([]);
-      setSearchSource("");
-      setSearchTarget("");
+      setBranchState({
+        sourceBranch: null,
+        targetBranch: null,
+        sourceBranches: [],
+        targetBranches: [],
+        searchSource: "",
+        searchTarget: "",
+      });
     }
   }, [selectedRepo, repoChangeTimestamp]);
 
@@ -66,92 +90,92 @@ export default function MergeRequest() {
     }
   }, [selectedRepo, token, orgId]);
 
-  // 监听分支选择变化，重置检测状态
-  useEffect(() => {
-    setCanCreateMerge(false);
-  }, [sourceBranch, targetBranch]);
-
   // 获取合并请求列表
-  const fetchMergeRequests = async (page = 1, pageSize = mrPerPage) => {
-    if (!selectedRepo || !token || !orgId) return;
+  const fetchMergeRequests = useCallback(
+    async (page = 1, pageSize = mrPerPage) => {
+      if (!selectedRepo || !token || !orgId) return;
 
-    setLoadingMRList(true);
-    try {
+      setLoadingState((prev) => ({ ...prev, mrList: true }));
+      try {
+        const params = new URLSearchParams({
+          token,
+          orgId,
+          repoId: selectedRepo,
+          page: page.toString(),
+          perPage: pageSize.toString(),
+        });
+
+        const response = await fetch(
+          `/api/codeup/create-request?${params.toString()}`
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          showMessage(
+            `获取合并请求列表失败: ${
+              errorData.errorDescription || errorData.errorMessage
+            }`,
+            "error"
+          );
+          return;
+        }
+
+        const data = await response.json();
+
+        // 兼容两种返回结构
+        let list = [];
+        let total = 0;
+        if (Array.isArray(data)) {
+          list = data;
+          total = data.length;
+        } else if (data?.result) {
+          list = Array.isArray(data.result) ? data.result : [];
+          total = data.total ?? data.totalCount ?? list.length;
+        }
+
+        setMergeRequests(list);
+        setMrTotal(total);
+      } catch (error) {
+        console.error("获取合并请求列表时发生错误:", error);
+        showMessage("获取合并请求列表时发生错误", "error");
+      } finally {
+        setLoadingState((prev) => ({ ...prev, mrList: false }));
+      }
+    },
+    [selectedRepo, token, orgId, mrPerPage, showMessage]
+  );
+
+  const fetchBranches = useCallback(
+    async (kind, q = "") => {
+      if (!token || !selectedRepo) return;
+      setLoadingState((prev) => ({ ...prev, [kind]: true }));
+
       const params = new URLSearchParams({
         token,
         orgId,
         repoId: selectedRepo,
-        page: page.toString(),
-        perPage: pageSize.toString(),
+        search: q,
       });
-
-      const response = await fetch(
-        `/api/codeup/change-requests?${params.toString()}`
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        showMessage(
-          `获取合并请求列表失败: ${
-            errorData.errorDescription || errorData.errorMessage
-          }`,
-          "error"
-        );
-        return;
+      try {
+        const res = await fetch(`/api/codeup/branches?${params.toString()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setBranchState((prev) => ({
+          ...prev,
+          [`${kind}Branches`]: data.result || [],
+        }));
+      } catch (e) {
+        console.error(e);
+        setBranchState((prev) => ({
+          ...prev,
+          [`${kind}Branches`]: [],
+        }));
+      } finally {
+        setLoadingState((prev) => ({ ...prev, [kind]: false }));
       }
-
-      const data = await response.json();
-
-      // 兼容两种返回结构
-      let list = [];
-      let total = 0;
-      if (Array.isArray(data)) {
-        list = data;
-        total = data.length;
-      } else if (data?.result) {
-        list = Array.isArray(data.result) ? data.result : [];
-        total = data.total ?? data.totalCount ?? list.length;
-      }
-
-      setMergeRequests(list);
-      setMrTotal(total);
-    } catch (error) {
-      console.error("获取合并请求列表时发生错误:", error);
-      showMessage("获取合并请求列表时发生错误", "error");
-    } finally {
-      setLoadingMRList(false);
-    }
-  };
-
-  const fetchBranches = async (kind, q = "") => {
-    if (!token || !selectedRepo) return;
-    if (kind === "source") setLoadingSource(true);
-    else setLoadingTarget(true);
-
-    const params = new URLSearchParams({
-      token,
-      orgId,
-      repoId: selectedRepo,
-      search: q,
-    });
-    try {
-      const res = await fetch(`/api/codeup/branches?${params.toString()}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (kind === "source") {
-        setSourceBranches(data.result || []);
-      } else {
-        setTargetBranches(data.result || []);
-      }
-    } catch (e) {
-      console.error(e);
-      if (kind === "source") setSourceBranches([]);
-      else setTargetBranches([]);
-    } finally {
-      if (kind === "source") setLoadingSource(false);
-      else setLoadingTarget(false);
-    }
-  };
+    },
+    [token, selectedRepo, orgId]
+  );
 
   useEffect(() => {
     if (token && selectedRepo) {
@@ -160,45 +184,50 @@ export default function MergeRequest() {
     }
   }, [token, orgId, selectedRepo]);
 
-  const handleSearchChange = (kind, value) => {
-    if (kind === "source") setSearchSource(value);
-    else setSearchTarget(value);
+  const handleSearchChange = useCallback(
+    (kind, value) => {
+      setBranchState((prev) => ({
+        ...prev,
+        [`search${kind.charAt(0).toUpperCase() + kind.slice(1)}`]: value,
+      }));
 
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    searchTimerRef.current = setTimeout(() => {
-      fetchBranches(kind, value);
-    }, 400);
-  };
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = setTimeout(() => {
+        fetchBranches(kind, value);
+      }, 400);
+    },
+    [fetchBranches]
+  );
 
-  const handleCreateMergeRequest = async () => {
-    if (!sourceBranch || !targetBranch) {
+  const handleCreateMergeRequest = useCallback(async () => {
+    if (!branchState.sourceBranch || !branchState.targetBranch) {
       showMessage("请选择源分支和目标分支", "warning");
       return;
     }
 
-    if (sourceBranch.name === targetBranch.name) {
+    if (branchState.sourceBranch.name === branchState.targetBranch.name) {
       showMessage("源分支和目标分支不能相同", "warning");
       return;
     }
 
-    setCreatingMR(true);
+    setLoadingState((prev) => ({ ...prev, creating: true }));
 
     try {
       const payload = {
         token,
         orgId,
         repoId: selectedRepo,
-        sourceBranch: sourceBranch.name,
-        targetBranch: targetBranch.name,
+        sourceBranch: branchState.sourceBranch.name,
+        targetBranch: branchState.targetBranch.name,
         title: `${
-          sourceBranch.commit?.message
-            ? `${sourceBranch.commit.message}`
-            : `${sourceBranch.name}-->${targetBranch.name}`
+          branchState.sourceBranch.commit?.message
+            ? `${branchState.sourceBranch.commit.message}`
+            : `${branchState.sourceBranch.name}-->${branchState.targetBranch.name}`
         }`,
         description: `created by aliyun-codeup-check`,
       };
 
-      const res = await fetch("/api/codeup/change-requests", {
+      const res = await fetch("/api/codeup/create-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -206,6 +235,7 @@ export default function MergeRequest() {
 
       if (!res.ok) {
         const errorData = await res.json();
+        setLoadingState((prev) => ({ ...prev, creating: false }));
         showMessage(
           `创建合并请求失败: ${
             errorData.errorDescription || errorData.errorMessage
@@ -220,17 +250,26 @@ export default function MergeRequest() {
         data?.localId ?? data?.result?.localId ?? data?.iid ?? data?.result?.id;
       showMessage(`合并请求创建成功${id ? `（ID: ${id}）` : ""}`, "success");
 
-      // 创建成功后清空选择并刷新合并请求列表
-      setSourceBranch(null);
-      setTargetBranch(null);
-      fetchMergeRequests(mrPage);
+      // 创建成功后延迟1s刷新合并请求列表，解决冲突检测异步问题
+      setTimeout(() => {
+        fetchMergeRequests(mrPage);
+      }, 1000);
     } catch (error) {
       console.error("创建合并请求时发生错误:", error);
       showMessage("创建合并请求时发生错误", "error");
     } finally {
-      setCreatingMR(false);
+      setLoadingState((prev) => ({ ...prev, creating: false }));
     }
-  };
+  }, [
+    branchState.sourceBranch,
+    branchState.targetBranch,
+    token,
+    orgId,
+    selectedRepo,
+    showMessage,
+    fetchMergeRequests,
+    mrPage,
+  ]);
 
   // 渲染合并请求状态的颜色和文本
   const getMergeRequestStatus = (state) => {
@@ -256,65 +295,14 @@ export default function MergeRequest() {
     }
   };
 
-  // 检测合并状态
-  const handleCheckMergeStatus = async () => {
-    if (!token || !orgId || !selectedRepo || !sourceBranch || !targetBranch) {
+  // 打开代码比较弹窗
+  const handleOpenCompareDialog = useCallback(() => {
+    if (!branchState.sourceBranch || !branchState.targetBranch) {
       showMessage("请先选择源分支和目标分支", "warning");
       return;
     }
-
-    setCheckingMergeStatus(true);
-
-    try {
-      const response = await fetch("/api/codeup/merge-status", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          token: token,
-          orgId: orgId,
-          repoId: selectedRepo,
-          target: targetBranch.name,
-          branches: [
-            {
-              name: sourceBranch.name,
-              commitId: sourceBranch.commit?.id || "",
-            },
-          ],
-        }),
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        // API返回的是批量检测结果，取第一个分支的结果
-        const branchResult = result?.results?.[0];
-        const isMerged = branchResult?.merged || false;
-        // 只有检测通过且分支未合并时才允许新建合并
-        setCanCreateMerge(!isMerged);
-
-        if (isMerged) {
-          showMessage("分支已合并，无需重复创建合并请求", "info");
-        } else {
-          showMessage("分支未合并，可以创建合并请求", "success");
-        }
-      } else {
-        showMessage(
-          result.errorDescription || result.error || "检测合并状态失败",
-          "error"
-        );
-        setCanCreateMerge(true); // 检测失败时允许创建
-      }
-    } catch (error) {
-      console.error("检测合并状态错误:", error);
-      showMessage("检测合并状态时发生错误", "error");
-      setCanCreateMerge(true); // 检测失败时允许创建
-    } finally {
-      setCheckingMergeStatus(false);
-    }
-  };
-
+    setCompareDialogOpen(true);
+  }, [branchState.sourceBranch, branchState.targetBranch, showMessage]);
   // 处理合并请求
   const handleMergeRequest = async (rowData) => {
     if (!token || !orgId || !selectedRepo) {
@@ -326,7 +314,10 @@ export default function MergeRequest() {
     const originalData = rowData.originalData;
 
     // 添加到正在合并的集合中
-    setMergingIds((prev) => new Set([...prev, requestId]));
+    setOperatingIds((prev) => ({
+      ...prev,
+      merging: new Set([...prev.merging, requestId]),
+    }));
 
     try {
       const response = await fetch("/api/codeup/merge", {
@@ -365,10 +356,10 @@ export default function MergeRequest() {
       showMessage("合并请求失败: " + error.message, "error");
     } finally {
       // 从正在合并的集合中移除
-      setMergingIds((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(requestId);
-        return newSet;
+      setOperatingIds((prev) => {
+        const newMerging = new Set(prev.merging);
+        newMerging.delete(requestId);
+        return { ...prev, merging: newMerging };
       });
     }
   };
@@ -384,7 +375,10 @@ export default function MergeRequest() {
     const originalData = rowData.originalData;
 
     // 添加到正在关闭的集合中
-    setClosingIds((prev) => new Set([...prev, requestId]));
+    setOperatingIds((prev) => ({
+      ...prev,
+      closing: new Set([...prev.closing, requestId]),
+    }));
 
     try {
       const response = await fetch("/api/codeup/close-merge", {
@@ -424,10 +418,10 @@ export default function MergeRequest() {
       showMessage("关闭请求失败: " + error.message, "error");
     } finally {
       // 从正在关闭的集合中移除
-      setClosingIds((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(requestId);
-        return newSet;
+      setOperatingIds((prev) => {
+        const newClosing = new Set(prev.closing);
+        newClosing.delete(requestId);
+        return { ...prev, closing: newClosing };
       });
     }
   };
@@ -439,11 +433,11 @@ export default function MergeRequest() {
       }}
     >
       <Box sx={{ width: "100%", height: "4px" }}>
-        {loadingMRList && <LinearProgress />}
+        {loadingState.mrList && <LinearProgress />}
       </Box>
       {/* 创建合并请求部分 */}
       <Paper
-          sx={{
+        sx={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -457,7 +451,13 @@ export default function MergeRequest() {
           backdropFilter: "blur(10px)",
         }}
       >
-        <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+        <Box
+          display="flex"
+          alignItems="center"
+          gap={2}
+          flexWrap="wrap"
+          flex={1}
+        >
           <Typography
             variant="subtitle2"
             sx={{ minWidth: "auto", fontWeight: "bold" }}
@@ -465,15 +465,15 @@ export default function MergeRequest() {
             合并请求：
           </Typography>
           <Autocomplete
-            options={sourceBranches}
+            options={branchState.sourceBranches}
             getOptionLabel={(option) => option.name}
-            loading={loadingSource}
-            inputValue={searchSource}
+            loading={loadingState.source}
+            inputValue={branchState.searchSource}
             onInputChange={(event, newInputValue) => {
               handleSearchChange("source", newInputValue);
             }}
             onChange={(event, newValue) => {
-              setSourceBranch(newValue);
+              setBranchState((prev) => ({ ...prev, sourceBranch: newValue }));
             }}
             sx={{ minWidth: 200, flex: 1 }}
             renderInput={(params) => (
@@ -486,15 +486,15 @@ export default function MergeRequest() {
             )}
           />
           <Autocomplete
-            options={targetBranches}
+            options={branchState.targetBranches}
             getOptionLabel={(option) => option.name}
-            loading={loadingTarget}
-            inputValue={searchTarget}
+            loading={loadingState.target}
+            inputValue={branchState.searchTarget}
             onInputChange={(event, newInputValue) => {
               handleSearchChange("target", newInputValue);
             }}
             onChange={(event, newValue) => {
-              setTargetBranch(newValue);
+              setBranchState((prev) => ({ ...prev, targetBranch: newValue }));
             }}
             sx={{ minWidth: 200, flex: 1 }}
             renderInput={(params) => (
@@ -506,21 +506,25 @@ export default function MergeRequest() {
               />
             )}
           />
+        </Box>
+        <Box
+          display="flex"
+          alignItems="center"
+          gap={2}
+          flexWrap="wrap"
+          justifyContent="flex-end"
+        >
           <Button
             variant="outlined"
-            onClick={handleCheckMergeStatus}
+            onClick={handleOpenCompareDialog}
             sx={{ minWidth: 80 }}
             disabled={
-              !sourceBranch ||
-              !targetBranch ||
-              checkingMergeStatus ||
-              creatingMR
-            }
-            startIcon={
-              checkingMergeStatus ? <CircularProgress size={16} /> : null
+              !branchState.sourceBranch ||
+              !branchState.targetBranch ||
+              loadingState.creating
             }
           >
-            {checkingMergeStatus ? "检测中..." : "检测"}
+            代码对比
           </Button>
           <Button
             variant="contained"
@@ -534,18 +538,23 @@ export default function MergeRequest() {
               },
             }}
             disabled={
-              !sourceBranch || !targetBranch || creatingMR || !canCreateMerge
+              !branchState.sourceBranch ||
+              !branchState.targetBranch ||
+              loadingState.creating ||
+              !canCreateMerge
             }
-            startIcon={creatingMR ? <CircularProgress size={16} /> : null}
+            startIcon={
+              loadingState.creating ? <CircularProgress size={16} /> : null
+            }
           >
-            {creatingMR ? "创建中..." : "新建合并"}
+            {loadingState.creating ? "创建中..." : "新建合并"}
           </Button>
         </Box>
       </Paper>
 
       {/* 合并请求列表部分 */}
       <Paper
-       sx={{
+        sx={{
           width: "100%",
           mt: 3,
           p: 2,
@@ -573,7 +582,7 @@ export default function MergeRequest() {
           </Typography>
           <IconButton
             onClick={() => fetchMergeRequests(mrPage)}
-            disabled={loadingMRList}
+            disabled={loadingState.mrList}
             size="small"
             sx={{
               color: "primary.main",
@@ -587,266 +596,335 @@ export default function MergeRequest() {
             <RefreshIcon />
           </IconButton>
         </Box>
- <Box sx={{ flex: 1, minHeight: 0 }}>
-              <DataGrid
-          rows={mergeRequests.map((mr, index) => ({
-            id: mr.localId || mr.id || index,
-            title: mr.title,
-            description: mr.description,
-            sourceBranch: mr.sourceBranch,
-            targetBranch: mr.targetBranch,
-            state: mr.state,
-            author: mr.author?.name || "未知",
-            updatedAt: mr.updatedAt,
-            detailUrl: mr.detailUrl || "",
-            hasConflict: mr.hasConflict || false,
-            localId: mr.localId,
-            originalData: mr,
-          }))}
-          columns={[
-            {
-              field: "title",
-              headerName: "标题",
-              flex: 2.5,
-              minWidth: 250,
-              renderCell: (params) => (
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: params.row.description
-                      ? "flex-start"
-                      : "center",
-                    alignItems: "flex-start",
-                    height: "100%",
-                    textAlign: "left",
-                  }}
-                  title={params.row.title}
-                >
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontWeight: "medium",
-                      whiteSpace: "normal",
-                      wordBreak: "break-word",
-                      lineHeight: 1.3,
-                    }}
-                  >
-                    {params.row.title}
-                  </Typography>
-                  {params.row.description && (
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{
-                        display: "block",
-                        whiteSpace: "normal",
-                        wordBreak: "break-word",
-                        lineHeight: 1.2,
-                        mt: 0.5,
-                      }}
-                    >
-                      {params.row.description.length > 80
-                        ? `${params.row.description.substring(0, 80)}...`
-                        : params.row.description}
-                    </Typography>
-                  )}
-                </Box>
-              ),
-            },
-            {
-              field: "sourceBranch",
-              headerName: "源分支",
-              flex: 1,
-              minWidth: 120,
-            },
-            {
-              field: "targetBranch",
-              headerName: "目标分支",
-              flex: 1,
-              minWidth: 120,
-            },
-            {
-              field: "state",
-              headerName: "状态",
-              flex: 1,
-              minWidth: 100,
-              renderCell: (params) => {
-                const status = getMergeRequestStatus(params.value);
-                return (
-                  <Chip label={status.text} color={status.color} size="small" />
-                );
-              },
-            },
-            {
-              field: "author",
-              headerName: "创建者",
-              flex: 1,
-              minWidth: 100,
-            },
-            {
-              field: "updatedAt",
-              headerName: "更新时间",
-              flex: 1,
-              minWidth: 150,
-              renderCell: (params) =>
-                params.value
-                  ? new Date(params.value).toLocaleString("zh-CN")
-                  : "-",
-            },
-            {
-              field: "detailUrl",
-              headerName: "URL链接",
-              flex: 1,
-              minWidth: 120,
-              renderCell: (params) =>
-                params.value ? (
-                  <Button
-                    variant="text"
-                    size="small"
-                    onClick={() => window.open(params.value, "_blank")}
-                    sx={{
-                      minWidth: "auto",
-                      padding: "2px 8px",
-                      fontSize: "12px",
-                      textTransform: "none",
-                    }}
-                  >
-                    查看
-                  </Button>
-                ) : (
-                  "-"
-                ),
-            },
-            {
-              field: "hasConflict",
-              headerName: "冲突状态",
-              flex: 1,
-              minWidth: 100,
-              renderCell: (params) => (
-                <Chip
-                  label={params.value ? "有冲突" : "无冲突"}
-                  color={params.value ? "error" : "success"}
-                  size="small"
-                  variant="outlined"
-                />
-              ),
-            },
-            {
-              field: "actions",
-              headerName: "操作",
-              flex: 1.5,
-              minWidth: 150,
-              sortable: false,
-              renderCell: (params) => {
-                const canMerge = params.row.state === "TO_BE_MERGED";
-                const canClose = [
-                  "TO_BE_MERGED",
-                  "UNDER_REVIEW",
-                  "OPEN",
-                  "DRAFT",
-                  "REVIEWING",
-                ].includes(params.row.state);
-
-                return (
+        <Box sx={{ flex: 1, minHeight: 0 }}>
+          <DataGrid
+            rows={mergeRequests.map((mr, index) => ({
+              id: mr.localId || mr.id || index,
+              title: mr.title,
+              description: mr.description,
+              sourceBranch: mr.sourceBranch,
+              targetBranch: mr.targetBranch,
+              state: mr.state,
+              author: mr.author?.name || "未知",
+              updatedAt: mr.updatedAt,
+              detailUrl: mr.detailUrl || "",
+              hasConflict: mr.hasConflict || false,
+              localId: mr.localId,
+              originalData: mr,
+            }))}
+            columns={[
+              {
+                field: "title",
+                headerName: "标题",
+                flex: 1.5,
+                minWidth: 250,
+                renderCell: (params) => (
                   <Box
                     sx={{
                       display: "flex",
-                      gap: 0.5,
-                      alignItems: "center",
-                      justifyContent: "flex-start",
+                      flexDirection: "column",
+                      justifyContent: params.row.description
+                        ? "flex-start"
+                        : "center",
+                      alignItems: "flex-start",
+                      height: "100%",
+                      textAlign: "left",
                     }}
+                    title={params.row.title}
                   >
-                    {canMerge && (
-                      <Button
-                        variant="contained"
-                        color="success"
-                        size="small"
-                        onClick={() => handleMergeRequest(params.row)}
-                        disabled={
-                          mergingIds.has(params.row.id) ||
-                          closingIds.has(params.row.id)
-                        }
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: "medium",
+                        whiteSpace: "normal",
+                        wordBreak: "break-word",
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {params.row.title}
+                    </Typography>
+                    {params.row.description && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
                         sx={{
-                          minWidth: "60px",
-                          height: "28px",
-                          fontSize: "12px",
-                          fontWeight: "medium",
-                          borderRadius: "6px",
-                          textTransform: "none",
-                          boxShadow: "none",
-                          "&:hover": {
-                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                          },
+                          display: "block",
+                          whiteSpace: "normal",
+                          wordBreak: "break-word",
+                          lineHeight: 1.2,
+                          mt: 0.5,
                         }}
                       >
-                        {mergingIds.has(params.row.id) ? "合并中..." : "合并"}
-                      </Button>
-                    )}
-                    {canClose && (
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        size="small"
-                        onClick={() => handleCloseRequest(params.row)}
-                        disabled={
-                          mergingIds.has(params.row.id) ||
-                          closingIds.has(params.row.id)
-                        }
-                        sx={{
-                          minWidth: "60px",
-                          height: "28px",
-                          fontSize: "12px",
-                          fontWeight: "medium",
-                          borderRadius: "6px",
-                          textTransform: "none",
-                          borderWidth: "1px",
-                          "&:hover": {
-                            backgroundColor: "rgba(211, 47, 47, 0.04)",
-                            borderWidth: "1px",
-                          },
-                        }}
-                      >
-                        {closingIds.has(params.row.id) ? "关闭中..." : "关闭"}
-                      </Button>
+                        {params.row.description.length > 80
+                          ? `${params.row.description.substring(0, 80)}...`
+                          : params.row.description}
+                      </Typography>
                     )}
                   </Box>
-                );
+                ),
               },
-            },
-          ]}
-          paginationModel={{
-            page: mrPage - 1,
-            pageSize: mrPerPage,
-          }}
-          pageSizeOptions={[10, 20, 50]}
-          pagination
-          paginationMode="server"
-          rowCount={mrTotal}
-          onPaginationModelChange={(model) => {
-            const newPage = model.page + 1;
-            const newPageSize = model.pageSize;
+              {
+                field: "sourceBranch",
+                headerName: "源分支",
+                flex: 1,
+                minWidth: 100,
+              },
+              {
+                field: "targetBranch",
+                headerName: "目标分支",
+                flex: 1,
+                minWidth: 100,
+              },
+              {
+                field: "state",
+                headerName: "状态",
+                headerAlign: "center",
+                align: "center",
+                minWidth: 100,
+                renderCell: (params) => {
+                  const status = getMergeRequestStatus(params.value);
+                  const colorMap = {
+                    success: "#2e7d32",
+                    error: "#d32f2f",
+                    warning: "#ed6c02",
+                    info: "#0288d1",
+                    default: "#757575",
+                  };
+                  const color = colorMap[status.color] || colorMap.default;
+                  return (
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: color,
+                        fontWeight: 500,
+                        fontSize: "13px",
+                        textAlign: "center",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        height: "100%",
+                      }}
+                    >
+                      {status.text}
+                    </Typography>
+                  );
+                },
+              },
+              {
+                field: "author",
+                headerName: "创建者",
+                minWidth: 100,
+              },
+              {
+                field: "updatedAt",
+                headerName: "更新时间",
+                flex: 1,
+                minWidth: 120,
+                headerAlign: "center",
+                align: "center",
+                renderCell: (params) => {
+                  if (!params.value) return "-";
 
-            if (newPage !== mrPage) {
-              setMrPage(newPage);
-              fetchMergeRequests(newPage, newPageSize);
-            }
+                  try {
+                    const m = moment(params.value);
+                    if (!m.isValid()) return "-";
 
-            if (newPageSize !== mrPerPage) {
-              setMrPerPage(newPageSize);
-              setMrPage(1);
-              fetchMergeRequests(1, newPageSize);
-            }
-          }}
-          loading={loadingMRList}
-          disableSelectionOnClick
-          localeText={{
-            noRowsLabel: "暂无合并请求",
-            footerRowSelected: (count) => `已选择 ${count} 行`,
-            footerTotalRows: "总行数:",
-            footerPaginationRowsPerPage: "每页行数:",
-          }}
-          sx={{
+                    return m.format("YYYY-MM-DD HH:mm:ss");
+                  } catch (error) {
+                    return "-";
+                  }
+                },
+              },
+              {
+                field: "detailUrl",
+                headerName: "URL链接",
+                headerAlign: "center",
+                align: "center",
+                minWidth: 100,
+                renderCell: (params) => (
+                  <a
+                    href={params.value}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "#1976d2",
+                      textDecoration: "none",
+                      fontSize: "13px",
+                      display: "block",
+                      textAlign: "center",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.textDecoration = "underline";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.textDecoration = "none";
+                    }}
+                  >
+                    查看
+                  </a>
+                ),
+              },
+              {
+                field: "hasConflict",
+                headerName: "冲突状态",
+                width: 100,
+                headerAlign: "center",
+                align: "center",
+                renderCell: (params) => {
+                  const hasConflict = params.value;
+                  const color = hasConflict ? "#d32f2f" : "#2e7d32";
+                  const IconComponent = hasConflict
+                    ? ErrorIcon
+                    : CheckCircleIcon;
+                  return (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        height: "100%",
+                      }}
+                    >
+                      <IconComponent
+                        sx={{
+                          color: color,
+                          fontSize: "18px",
+                        }}
+                      />
+                    </Box>
+                  );
+                },
+              },
+              {
+                field: "actions",
+                headerName: "操作",
+                flex: 1,
+                minWidth: 150,
+                sortable: false,
+                headerAlign: "center",
+                align: "center",
+                renderCell: (params) => {
+                  const canMerge = params.row.state === "TO_BE_MERGED";
+                  const canClose = [
+                    "TO_BE_MERGED",
+                    "UNDER_REVIEW",
+                    "OPEN",
+                    "DRAFT",
+                    "REVIEWING",
+                  ].includes(params.row.state);
+
+                  return (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        gap: 2,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        height: "100%",
+                        minHeight: "52px",
+                      }}
+                    >
+                      {canMerge && (
+                        <Typography
+                          variant="body2"
+                          onClick={() => handleMergeRequest(params.row)}
+                          sx={{
+                            color:
+                              operatingIds.merging.has(params.row.id) ||
+                              operatingIds.closing.has(params.row.id)
+                                ? "#9e9e9e"
+                                : "#2e7d32",
+                            fontWeight: 500,
+                            fontSize: "13px",
+                            cursor:
+                              operatingIds.merging.has(params.row.id) ||
+                              operatingIds.closing.has(params.row.id)
+                                ? "not-allowed"
+                                : "pointer",
+                            "&:hover": {
+                              color:
+                                operatingIds.merging.has(params.row.id) ||
+                                operatingIds.closing.has(params.row.id)
+                                  ? "#9e9e9e"
+                                  : "#1b5e20",
+                              textDecoration: "underline",
+                            },
+                          }}
+                        >
+                          {operatingIds.merging.has(params.row.id)
+                            ? "合并中..."
+                            : "合并"}
+                        </Typography>
+                      )}
+                      {canClose && (
+                        <Typography
+                          variant="body2"
+                          onClick={() => handleCloseRequest(params.row)}
+                          sx={{
+                            color:
+                              operatingIds.merging.has(params.row.id) ||
+                              operatingIds.closing.has(params.row.id)
+                                ? "#9e9e9e"
+                                : "#d32f2f",
+                            fontWeight: 500,
+                            fontSize: "13px",
+                            cursor:
+                              operatingIds.merging.has(params.row.id) ||
+                              operatingIds.closing.has(params.row.id)
+                                ? "not-allowed"
+                                : "pointer",
+                            "&:hover": {
+                              color:
+                                operatingIds.merging.has(params.row.id) ||
+                                operatingIds.closing.has(params.row.id)
+                                  ? "#9e9e9e"
+                                  : "#b71c1c",
+                              textDecoration: "underline",
+                            },
+                          }}
+                        >
+                          {operatingIds.closing.has(params.row.id)
+                            ? "关闭中..."
+                            : "关闭"}
+                        </Typography>
+                      )}
+                    </Box>
+                  );
+                },
+              },
+            ]}
+            paginationModel={{
+              page: mrPage - 1,
+              pageSize: mrPerPage,
+            }}
+            pageSizeOptions={[10, 20, 50]}
+            pagination
+            paginationMode="server"
+            rowCount={mrTotal}
+            onPaginationModelChange={(model) => {
+              const newPage = model.page + 1;
+              const newPageSize = model.pageSize;
+
+              if (newPage !== mrPage) {
+                setMrPage(newPage);
+                fetchMergeRequests(newPage, newPageSize);
+              }
+
+              if (newPageSize !== mrPerPage) {
+                setMrPerPage(newPageSize);
+                setMrPage(1);
+                fetchMergeRequests(1, newPageSize);
+              }
+            }}
+            loading={loadingState.mrList}
+            disableSelectionOnClick
+            localeText={{
+              noRowsLabel: "暂无合并请求",
+              footerRowSelected: (count) => `已选择 ${count} 行`,
+              footerTotalRows: "总行数:",
+              footerPaginationRowsPerPage: "每页行数:",
+            }}
+            sx={{
               border: 0,
               width: "100%",
               height: "100%",
@@ -857,11 +935,20 @@ export default function MergeRequest() {
                 overflow: "auto",
               },
             }}
-        />
-
- </Box>
-      
+          />
+        </Box>
       </Paper>
+
+      {/* 代码比较弹窗 */}
+      <CompareDialog
+        open={compareDialogOpen}
+        onClose={() => setCompareDialogOpen(false)}
+        sourceBranch={branchState.sourceBranch?.name}
+        targetBranch={branchState.targetBranch?.name}
+        token={token}
+        orgId={orgId}
+        repoId={selectedRepo}
+      />
     </Box>
   );
 }
