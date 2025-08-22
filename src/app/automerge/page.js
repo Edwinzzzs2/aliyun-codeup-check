@@ -176,7 +176,7 @@ export default function AutoMergePage() {
 
   const handleOpenDialog = (task = null) => {
     const repos = fetchRepos() || [];
-    const taskRepo = repos.find((r) => r.id === Number(task.repository_id));
+    const taskRepo = task ? repos.find((r) => r.id === Number(task.repository_id)) : null;
     if (task) {
       setEditingTask(task);
       setFormData({
