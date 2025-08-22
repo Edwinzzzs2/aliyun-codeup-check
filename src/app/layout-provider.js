@@ -39,6 +39,7 @@ import {
   Visibility,
   VisibilityOff,
   ExpandMore,
+  Schedule,
 } from "@mui/icons-material";
 import { TokenProvider, useToken, useTokenDialog, useTokenMessage, useGlobalLoading, useRepoChange, useTokenConfigDialog } from "../contexts/TokenContext";
 
@@ -54,6 +55,11 @@ const menuItems = [
     text: "代码合并",
     icon: <MergeType />,
     path: "/merge",
+  },
+  {
+    text: "自动合并",
+    icon: <Schedule />,
+    path: "/automerge",
   },
 ];
 
