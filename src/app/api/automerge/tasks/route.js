@@ -1,10 +1,10 @@
-import { AutoMergeDB } from '../../../../../lib/database';
+import { AutoMergeDB } from '../../../../../lib/database.supabase';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request) {
   try {
     // 获取所有任务
-    const tasks = AutoMergeDB.getAllTasks();
+    const tasks = await AutoMergeDB.getAllTasks();
     return NextResponse.json({ success: true, data: tasks });
   } catch (error) {
     console.error('获取任务列表错误:', error);
@@ -35,7 +35,7 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    const taskId = AutoMergeDB.createTask({
+    const taskId = await AutoMergeDB.createTask({
       name,
       source_branch,
       target_branch,
@@ -71,7 +71,7 @@ export async function PUT(request) {
       }, { status: 400 });
     }
 
-    const updateResult = AutoMergeDB.updateTask(parseInt(id), updateData);
+    const updateResult = await AutoMergeDB.updateTask(parseInt(id), updateData);
     
     if (updateResult.changes === 0) {
       return NextResponse.json({ 
@@ -107,7 +107,7 @@ export async function DELETE(request) {
       }, { status: 400 });
     }
 
-    const deleteResult = AutoMergeDB.deleteTask(parseInt(deleteId));
+    const deleteResult = await AutoMergeDB.deleteTask(parseInt(deleteId));
     
     if (deleteResult.changes === 0) {
       return NextResponse.json({ 

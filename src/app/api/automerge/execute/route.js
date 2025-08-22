@@ -1,4 +1,4 @@
-import { AutoMergeDB } from '../../../../../lib/database';
+import { AutoMergeDB } from '../../../../../lib/database.supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import { POST as createMergeRequest } from '../../codeup/create-request/route.js';
 import { POST as executeMerge } from '../../codeup/merge/route.js';
@@ -16,7 +16,7 @@ export async function POST(request) {
     }
 
     // 获取任务信息
-    const tasks = AutoMergeDB.getAllTasks();
+    const tasks = await AutoMergeDB.getAllTasks();
     const task = tasks.find(t => t.id === parseInt(taskId));
     
     if (!task) {
@@ -58,7 +58,7 @@ export async function GET(request) {
     const limit = searchParams.get('limit');
         
     // 直接查询展示所有日志内容
-    const logs = AutoMergeDB.getAllLogs(parseInt(limit) || 100);
+    const logs = await AutoMergeDB.getAllLogs(parseInt(limit) || 100);
     
     return NextResponse.json({ 
       success: true, 
@@ -75,7 +75,7 @@ export async function GET(request) {
 }
 
 // 执行自动合并的核心函数
-async function executeAutoMerge(task) {
+export async function executeAutoMerge(task) {
   const startTime = new Date();
   
   try {
@@ -151,7 +151,7 @@ async function executeAutoMerge(task) {
     }
 
     // 记录创建合并请求成功的日志
-    AutoMergeDB.logExecution(
+    await AutoMergeDB.logExecution(
       task.name,
       'success',
       `成功创建合并请求: ${mergeRequestId}`,
@@ -188,7 +188,7 @@ async function executeAutoMerge(task) {
       const errorData = await mergeResponse.json();
       console.error('❌ 合并操作失败，错误详情:', JSON.stringify(errorData, null, 2));
       // 合并失败，但合并请求已创建，记录部分成功
-      AutoMergeDB.logExecution(
+      await AutoMergeDB.logExecution(
         task.name,
         'failed',
         `合并请求创建成功但合并失败: ${errorData.details || errorData.error || '未知错误'}`,
@@ -201,7 +201,7 @@ async function executeAutoMerge(task) {
     console.log('✅ 合并操作成功，返回数据:', JSON.stringify(mergeResult, null, 2));
 
     // 记录完全成功日志
-    AutoMergeDB.logExecution(
+    await AutoMergeDB.logExecution(
       task.name,
       'success',
       `自动合并完全成功，合并请求ID: ${mergeRequestId}`,
@@ -210,7 +210,7 @@ async function executeAutoMerge(task) {
 
     // 更新任务的执行时间
     const nextRun = new Date(startTime.getTime() + task.interval_minutes * 60 * 1000);
-    AutoMergeDB.updateTaskRunTime(
+    await AutoMergeDB.updateTaskRunTime(
       task.id,
       startTime.toISOString(),
       nextRun.toISOString()
@@ -232,7 +232,7 @@ async function executeAutoMerge(task) {
     console.error('📊 错误堆栈:', error.stack);
     
     // 记录失败日志
-    AutoMergeDB.logExecution(
+    await AutoMergeDB.logExecution(
       task.name,
       'failed',
       `自动合并执行失败: ${error.message}`
@@ -240,7 +240,7 @@ async function executeAutoMerge(task) {
 
     // 仍然更新下次执行时间
     const nextRun = new Date(startTime.getTime() + task.interval_minutes * 60 * 1000);
-    AutoMergeDB.updateTaskRunTime(
+    await AutoMergeDB.updateTaskRunTime(
       task.id,
       startTime.toISOString(),
       nextRun.toISOString()
@@ -257,5 +257,3 @@ async function executeAutoMerge(task) {
     return failedResult;
   }
 }
-
-export { executeAutoMerge };

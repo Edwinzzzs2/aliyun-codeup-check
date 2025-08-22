@@ -1,4 +1,4 @@
-import { AutoMergeDB } from '../../../../../lib/database';
+import { AutoMergeDB } from '../../../../../lib/database.supabase';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request) {
@@ -9,7 +9,7 @@ export async function GET(request) {
     
     if (logId) {
       // 获取单个日志详情
-      const logDetail = AutoMergeDB.getLogDetail(parseInt(logId));
+      const logDetail = await AutoMergeDB.getLogDetail(parseInt(logId));
       
       if (!logDetail) {
         return NextResponse.json({ 
@@ -24,7 +24,7 @@ export async function GET(request) {
       });
     } else {
       // 获取所有日志列表
-      const logs = AutoMergeDB.getAllLogs(parseInt(limit));
+      const logs = await AutoMergeDB.getAllLogs(parseInt(limit));
       return NextResponse.json({ 
         success: true, 
         data: logs 
@@ -64,7 +64,7 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    const logId = AutoMergeDB.logDetailedExecution({
+    const logId = await AutoMergeDB.logDetailedExecution({
       taskName,
       status,
       message,

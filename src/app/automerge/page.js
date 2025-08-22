@@ -41,6 +41,7 @@ import {
   History as HistoryIcon,
   Refresh as RefreshIcon,
 } from "@mui/icons-material";
+import moment from "moment";
 import {
   useTokenConfig,
   useTokenMessage,
@@ -64,6 +65,18 @@ export default function AutoMergePage() {
     message: "",
     severity: "info",
   });
+
+  // 时间格式化函数，与其他页面保持一致
+  const formatTime = (timeStr) => {
+    if (!timeStr) return '-';
+    try {
+      const m = moment(timeStr, [moment.ISO_8601, "YYYY-MM-DD HH:mm:ss"], true);
+      if (!m.isValid()) return timeStr;
+      return m.format("YYYY-MM-DD HH:mm:ss");
+    } catch (error) {
+      return timeStr;
+    }
+  };
 
   const [formData, setFormData] = useState({
     name: "",
@@ -270,7 +283,7 @@ export default function AutoMergePage() {
   const addExecutionLog = (message, type = 'info', data = null) => {
     const logEntry = {
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: new Date().toLocaleString(),
+      timestamp: moment().format("YYYY-MM-DD HH:mm:ss"),
       message,
       type, // 'info', 'success', 'error', 'warning'
       data: data ? JSON.stringify(data, null, 2) : null
@@ -466,11 +479,11 @@ export default function AutoMergePage() {
                       <Box>
                         <Typography variant="caption" color="text.secondary">上次:</Typography>
                         <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                          {task.last_run || '-'}
+                          {formatTime(task.last_run)}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">下次:</Typography>
                         <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                          {task.next_run || '-'}
+                          {formatTime(task.next_run)}
                         </Typography>
                       </Box>
                     </TableCell>
@@ -576,7 +589,7 @@ export default function AutoMergePage() {
                     </TableCell>
                     <TableCell>{log.message}</TableCell>
                     <TableCell>{log.merge_request_id ? parseInt(log.merge_request_id).toString() : "-"}</TableCell>
-                    <TableCell>{log.executed_at}</TableCell>
+                    <TableCell>{formatTime(log.executed_at)}</TableCell>
                   </TableRow>
                 ))}
                 {logs.length === 0 && (
@@ -640,7 +653,7 @@ export default function AutoMergePage() {
                       sx={{ mr: 1 }}
                     />
                     <Typography variant="caption" color="text.secondary">
-                      {log.timestamp}
+                      {formatTime(log.timestamp)}
                     </Typography>
                   </Box>
                   <Typography variant="body2" sx={{ mb: 1 }}>
