@@ -90,7 +90,7 @@ async function executeAutoMerge(task) {
     }, null, 2));
     
     // 从环境变量获取必要的配置信息
-    const token = process.env['X-YUNXIAO-TOKEN'] || process.env['NEXT_PUBLIC_TOKEN'];
+    const token = process.env['CODEUP_TOKEN'] || process.env['NEXT_PUBLIC_TOKEN'];
     const orgId = process.env.CODEUP_ORG_ID;
     
     console.log('🔑 环境变量检查:');
@@ -98,7 +98,7 @@ async function executeAutoMerge(task) {
     console.log('  - orgId:', orgId || '未设置');
     
     if (!token) {
-      throw new Error('缺少访问令牌，请检查环境变量 X-YUNXIAO-TOKEN');
+      throw new Error('缺少访问令牌，请检查环境变量 CODEUP_TOKEN');
     }
     
     if (!orgId) {
