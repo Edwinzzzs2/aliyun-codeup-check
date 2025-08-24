@@ -5,13 +5,13 @@ import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 import { LayoutProvider } from './layout-provider';
 
 // 在服务端启动时初始化自动合并调度器
-if (typeof window === 'undefined') {
-  try {
-    require('../../lib/scheduler');
-  } catch (error) {
-    console.error('自动合并调度器加载失败:', error);
-  }
-}
+// if (typeof window === 'undefined') {
+//   try {
+//     require('../../lib/scheduler');
+//   } catch (error) {
+//     console.error('自动合并调度器加载失败:', error);
+//   }
+// }
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

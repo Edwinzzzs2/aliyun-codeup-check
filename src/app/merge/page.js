@@ -18,6 +18,7 @@ import ErrorIcon from "@mui/icons-material/Error";
 import { DataGrid } from "@mui/x-data-grid";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import moment from "moment";
+
 import {
   useTokenConfig,
   useTokenMessage,
@@ -726,10 +727,7 @@ export default function MergeRequest() {
                   if (!params.value) return "-";
 
                   try {
-                    const m = moment(params.value);
-                    if (!m.isValid()) return "-";
-
-                    return m.format("YYYY-MM-DD HH:mm:ss");
+                    return moment(params.value).format('YYYY-MM-DD HH:mm');
                   } catch (error) {
                     return "-";
                   }

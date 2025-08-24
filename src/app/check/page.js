@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import moment from "moment";
 import {
   Box,
   Button,
@@ -15,7 +16,7 @@ import {
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import { Search, Refresh } from "@mui/icons-material";
-import moment from "moment";
+
 import {
   useTokenConfig,
   useTokenMessage,
@@ -296,14 +297,12 @@ export default function HomePage() {
           params.row.commit?.committedDate || params.row.commit?.authoredDate;
         if (!committedDate) return "-";
 
-        // 使用 moment 进行格式化，兼容 "YYYY-MM-DD HH:mm:ss" 字符串
-        const m = moment(
-          committedDate,
-          [moment.ISO_8601, "YYYY-MM-DD HH:mm:ss"],
-          true
-        );
-        if (!m.isValid()) return committedDate;
-        return m.format("YYYY-MM-DD HH:mm");
+        // 使用moment.js进行时间格式化
+        try {
+          return moment(committedDate).format('YYYY-MM-DD HH:mm');
+        } catch (error) {
+          return committedDate;
+        }
       },
     },
     {

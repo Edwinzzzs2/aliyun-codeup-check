@@ -12,10 +12,10 @@ CREATE TABLE IF NOT EXISTS auto_merge_tasks (
     execute_user TEXT,
     repository_id TEXT,
     repository_name TEXT,
-    last_run TIMESTAMPTZ,
-    next_run TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    last_run TIMESTAMP,
+    next_run TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- 创建自动合并执行日志表
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS auto_merge_logs (
     response_data TEXT,
     error_details TEXT,
     execution_type TEXT NOT NULL DEFAULT 'auto',
-    executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    executed_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- 创建索引以提高查询性能
@@ -52,20 +52,8 @@ CREATE POLICY "Enable all operations for auto_merge_tasks" ON auto_merge_tasks
 CREATE POLICY "Enable all operations for auto_merge_logs" ON auto_merge_logs
     FOR ALL USING (true) WITH CHECK (true);
 
--- 创建更新时间触发器函数
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
--- 为auto_merge_tasks表创建更新时间触发器
-CREATE TRIGGER update_auto_merge_tasks_updated_at
-    BEFORE UPDATE ON auto_merge_tasks
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+-- Removed automatic updated_at trigger to allow application-controlled time formatting
+-- This ensures consistent time format across all timestamp fields
 
 -- 插入示例数据（可选）
 -- INSERT INTO auto_merge_tasks (name, source_branch, target_branch, interval_minutes, repository_id, repository_name)
