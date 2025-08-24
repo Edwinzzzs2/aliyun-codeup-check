@@ -70,9 +70,10 @@ export default function AutoMergePage() {
   const formatTime = (timeStr) => {
     if (!timeStr) return '-';
     try {
-      const m = moment(timeStr, [moment.ISO_8601, "YYYY-MM-DD HH:mm:ss"], true);
+      // 统一处理ISO格式时间，转换为北京时间显示
+      const m = moment(timeStr);
       if (!m.isValid()) return timeStr;
-      return m.format("YYYY-MM-DD HH:mm:ss");
+      return m.utcOffset(8).format("YYYY-MM-DD HH:mm:ss");
     } catch (error) {
       return timeStr;
     }
