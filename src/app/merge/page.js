@@ -550,9 +550,7 @@ export default function MergeRequest() {
                     sx={{
                       display: "flex",
                       flexDirection: "column",
-                      justifyContent: params.row.description
-                        ? "flex-start"
-                        : "center",
+                      justifyContent: "center",
                       alignItems: "flex-start",
                       height: "100%",
                       textAlign: "left",
