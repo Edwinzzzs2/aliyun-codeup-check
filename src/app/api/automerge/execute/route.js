@@ -192,7 +192,7 @@ export async function executeAutoMerge(task) {
       sourceBranch: task.source_branch,
       targetBranch: task.target_branch,
       title: `[自动合并] ${task.source_branch} -> ${task.target_branch}`,
-      description: `由自动合并任务"${task.name}" 创建}`,
+      description: `由自动合并任务"${task.name}"创建`,
     };
 
     // 调用创建合并请求API
