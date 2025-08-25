@@ -56,14 +56,32 @@ export async function GET(request) {
     // 获取执行日志
     const { searchParams } = new URL(request.url);
     const logTaskId = searchParams.get('taskId');
-    const limit = searchParams.get('limit');
-        
-    // 直接查询展示所有日志内容
-    const logs = await AutoMergeDB.getAllLogs(parseInt(limit) || 100);
+    const page = parseInt(searchParams.get('page')) || 1;
+    const pageSize = parseInt(searchParams.get('pageSize')) || 20;
+    
+    // 计算偏移量
+    const offset = (page - 1) * pageSize;
+    
+    // 获取日志数据和总数
+    const [logs, totalCount] = await Promise.all([
+      AutoMergeDB.getAllLogs(pageSize, offset),
+      AutoMergeDB.getLogsCount()
+    ]);
+    
+    // 计算分页信息
+    const totalPages = Math.ceil(totalCount / pageSize);
     
     return NextResponse.json({ 
       success: true, 
-      data: logs 
+      data: logs,
+      pagination: {
+        page,
+        pageSize,
+        totalCount,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
     });
   } catch (error) {
     console.error('自动合并执行API错误:', error);

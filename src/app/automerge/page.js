@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Typography,
@@ -14,17 +14,9 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Paper,
   Switch,
   FormControlLabel,
-  Chip,
-  IconButton,
   Tabs,
   Tab,
   Grid,
@@ -34,12 +26,8 @@ import {
 } from "@mui/material";
 import {
   Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  PlayArrow as PlayIcon,
   Schedule as ScheduleIcon,
   History as HistoryIcon,
-  Refresh as RefreshIcon,
 } from "@mui/icons-material";
 import moment from "moment";
 import {
@@ -48,6 +36,8 @@ import {
   useRepoChange,
 } from "../../contexts/TokenContext";
 import BranchSelector from "../../components/BranchSelector";
+import TaskManagementTab from "./TaskManagementTab";
+import ExecutionLogsTab from "./ExecutionLogsTab";
 
 export default function AutoMergePage() {
   const { token, orgId } = useTokenConfig();
@@ -56,10 +46,20 @@ export default function AutoMergePage() {
 
   const [tasks, setTasks] = useState([]);
   const [logs, setLogs] = useState([]);
-  const [executionLogs, setExecutionLogs] = useState([]); // 新增：执行日志
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [activeTab, setActiveTab] = useState(0);
+  
+  
+  // 分页状态管理
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 20,
+    totalCount: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrev: false
+  });
 
   // 简化的loading状态管理
   const [loading, setLoading] = useState({
@@ -77,6 +77,26 @@ export default function AutoMergePage() {
       return m.utcOffset(8).format("YYYY-MM-DD HH:mm:ss");
     } catch (error) {
       return timeStr;
+    }
+  };
+
+  // 状态文本转换函数
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'success': return '成功';
+      case 'failed': return '失败';
+      case 'running': return '进行中';
+      default: return status || '未知';
+    }
+  };
+
+  // 状态颜色转换函数
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'success': return 'success';
+      case 'failed': return 'error';
+      case 'running': return 'warning';
+      default: return 'default';
     }
   };
 
@@ -103,8 +123,6 @@ export default function AutoMergePage() {
     }
   };
 
-
-
   // 获取任务列表
   const fetchTasks = async () => {
     console.log('AutoMergePage: fetchTasks called');
@@ -128,13 +146,20 @@ export default function AutoMergePage() {
   };
 
   // 获取执行日志
-  const fetchLogs = async () => {
+  const fetchLogs = async (page = pagination.page, pageSize = pagination.pageSize) => {
+    // 确保参数是数字类型
+    const pageNum = typeof page === 'number' ? page : parseInt(page) || 1;
+    const pageSizeNum = typeof pageSize === 'number' ? pageSize : parseInt(pageSize) || 20;
+    
     setLoading(prev => ({ ...prev, data: true }));
     try {
-      const response = await fetch("/api/automerge/execute");
+      const response = await fetch(`/api/automerge/execute?page=${pageNum}&pageSize=${pageSizeNum}`);
       const data = await response.json();
       if (data.success) {
         setLogs(data.data || []);
+        if (data.pagination) {
+          setPagination(data.pagination);
+        }
       }
     } catch (error) {
       console.error("获取执行日志失败:", error);
@@ -154,10 +179,6 @@ export default function AutoMergePage() {
       fetchLogs();
     }
   }, [activeTab]);
-
-
-
-
 
   const handleOpenDialog = (task = null) => {
     const repos = fetchRepos() || [];
@@ -264,7 +285,6 @@ export default function AutoMergePage() {
       type, // 'info', 'success', 'error', 'warning'
       data: data ? JSON.stringify(data, null, 2) : null
     };
-    setExecutionLogs(prev => [logEntry, ...prev.slice(0, 49)]); // 保留最新50条
   };
 
   const handleExecute = async (taskId) => {
@@ -315,409 +335,79 @@ export default function AutoMergePage() {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "success":
-        return "success";
-      case "failed":
-        return "error";
-      case "conflict":
-        return "warning";
-      case "info":
-        return "info";
-      default:
-        return "default";
-    }
-  };
 
-  const getStatusText = (status) => {
-    switch (status) {
-      case "success":
-        return "成功";
-      case "failed":
-        return "失败";
-      case "conflict":
-        return "冲突";
-      case "info":
-        return "无变动";
-      default:
-        return status;
-    }
-  };
 
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Loading进度条 - 始终保留空间，避免页面抖动 */}
-      <Box sx={{ width: "100%", height: "4px", mb: 2 }}>
+    <Box
+      sx={{
+        minHeight: "100vh",
+      }}
+    >
+      <Box sx={{ width: "100%", height: "4px" }}>
         {(loading.data || loading.action) && <LinearProgress />}
       </Box>
       
-      <Typography variant="h4" gutterBottom>
-        自动合并管理
-      </Typography>
-
-
-
-      {/* {(!token || !selectedRepo) && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          请先配置访问令牌并选择代码仓库才能使用自动合并功能
-        </Alert>
-      )} */}
-
-      <Tabs
-        value={activeTab}
-        onChange={(e, newValue) => setActiveTab(newValue)}
-        sx={{ mb: 3 }}
+      {/* 页面标题部分 */}
+      <Paper
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 2,
+          p: 2,
+          backgroundColor: "rgba(255, 255, 255, 0.95)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+          borderRadius: 2,
+          border: "1px solid rgba(255,255,255,0.3)",
+          backdropFilter: "blur(10px)",
+        }}
       >
-        <Tab label="任务管理" />
-        <Tab label="执行日志" />
-        <Tab label="实时日志" />
-      </Tabs>
+        <Tabs
+          value={activeTab}
+          onChange={(e, newValue) => setActiveTab(newValue)}
+        >
+          <Tab label="任务管理" />
+          <Tab label="执行日志" />
+          {/* <Tab label="实时日志" /> */}
+        </Tabs>
+      </Paper>
 
       {activeTab === 0 && (
-        <Box>
-          <Box
-            sx={{
-              mb: 3,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <Typography variant="h6">自动合并任务</Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => handleOpenDialog()}
-              disabled={!token || !selectedRepo}
-            >
-              新建任务
-            </Button>
-          </Box>
-
-          <TableContainer 
-            component={Paper} 
-            sx={{ 
-              maxHeight: 'calc(100vh - 400px)', 
-              overflow: 'auto',
-              '& .MuiTableCell-head': {
-                backgroundColor: '#f5f5f5',
-                fontWeight: 'bold',
-                fontSize: '0.875rem'
-              }
-            }}
-          >
-            <Table stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ minWidth: 120 }}>任务名称</TableCell>
-                  <TableCell sx={{ minWidth: 100 }}>仓库</TableCell>
-                  <TableCell sx={{ minWidth: 180 }}>分支合并</TableCell>
-                  <TableCell sx={{ minWidth: 80 }}>间隔</TableCell>
-                  <TableCell sx={{ minWidth: 80 }}>状态</TableCell>
-                  <TableCell sx={{ minWidth: 140 }}>执行时间</TableCell>
-                  <TableCell sx={{ minWidth: 100, textAlign: 'center' }}>操作</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading.data ? (
-                  <TableRow>
-                    <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                        <CircularProgress size={20} />
-                        <Typography variant="body2" color="text.secondary">
-                          加载数据中...
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ) : tasks.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        暂无任务
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  tasks.map((task) => (
-                  <TableRow key={task.id} hover>
-                    <TableCell sx={{ fontWeight: 500 }}>{task.name}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={task.repository_name || "未设置"}
-                        size="small"
-                        variant="outlined"
-                        sx={{ fontSize: '0.75rem' }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Chip
-                          label={task.source_branch}
-                          size="small"
-                          color="primary"
-                          sx={{ fontSize: '0.75rem' }}
-                        />
-                        <Typography variant="caption" sx={{ mx: 0.5 }}>→</Typography>
-                        <Chip
-                          label={task.target_branch}
-                          size="small"
-                          color="secondary"
-                          sx={{ fontSize: '0.75rem' }}
-                        />
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{task.interval_minutes}分钟</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={task.enabled ? "启用" : "禁用"}
-                        color={task.enabled ? "success" : "default"}
-                        size="small"
-                        sx={{ fontSize: '0.75rem' }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                          <Typography component="span" variant="caption" color="text.secondary">上次: </Typography>
-                          {formatTime(task.last_run)}
-                        </Typography>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                          <Typography component="span" variant="caption" color="text.secondary">下次: </Typography>
-                          {formatTime(task.next_run)}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleExecute(task.id)}
-                          disabled={!task.enabled || loading.action}
-                          title="立即执行"
-                          sx={{ color: task.enabled && !loading.action ? 'success.main' : 'disabled' }}
-                        >
-                          {loading.action ? <CircularProgress size={16} /> : <PlayIcon fontSize="small" />}
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleOpenDialog(task)}
-                          title="编辑"
-                          disabled={loading.action}
-                          sx={{ color: 'primary.main' }}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDelete(task.id)}
-                          title="删除"
-                          disabled={loading.action}
-                          sx={{ color: 'error.main' }}
-                        >
-                          {loading.action ? <CircularProgress size={16} /> : <DeleteIcon fontSize="small" />}
-                        </IconButton>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Box>
+        <TaskManagementTab
+           tasks={tasks}
+           loading={loading}
+           token={token}
+           selectedRepo={selectedRepo}
+           onOpenDialog={handleOpenDialog}
+           onExecute={handleExecute}
+           onDelete={handleDelete}
+           formatTime={formatTime}
+         />
       )}
 
       {activeTab === 1 && (
-        <Box>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              mb: 2,
-            }}
-          >
-            <Typography variant="h6">执行日志</Typography>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={loading.data ? <CircularProgress size={16} /> : <RefreshIcon />}
-              onClick={fetchLogs}
-              disabled={loading.data}
-            >
-              {loading.data ? "刷新中..." : "刷新"}
-            </Button>
-          </Box>
-
-          <TableContainer 
-            component={Paper} 
-            sx={{ 
-              maxHeight: 'calc(100vh - 350px)', 
-              overflow: 'auto',
-              '& .MuiTableCell-head': {
-                backgroundColor: '#f5f5f5',
-                fontWeight: 'bold',
-                fontSize: '0.875rem'
-              }
-            }}
-          >
-            <Table stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ minWidth: 100 }}>任务名称</TableCell>
-                  <TableCell sx={{ minWidth: 80 }}>执行状态</TableCell>
-                  <TableCell sx={{ minWidth: 150, maxWidth: 300 }}>执行信息</TableCell>
-                  <TableCell sx={{ minWidth: 100 }}>合并请求ID</TableCell>
-                  <TableCell sx={{ minWidth: 120 }}>执行时间</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading.data ? (
-                  <TableRow>
-                    <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                        <CircularProgress size={20} />
-                        <Typography variant="body2" color="text.secondary">
-                          加载数据中...
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ) : logs.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        暂无执行日志
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  logs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell>{log.task_name}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={getStatusText(log.status)}
-                          color={getStatusColor(log.status)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell sx={{ 
-                        maxWidth: 300, 
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis', 
-                        whiteSpace: 'nowrap' 
-                      }} title={log.message}>{log.message}</TableCell>
-                      <TableCell>
-                        {log.merge_request_id ? (
-                          log.merge_request_detail_url ? (
-                            <a 
-                              href={log.merge_request_detail_url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              style={{
-                                 color: '#1976d2',
-                                 textDecoration: 'underline',
-                                 cursor: 'pointer'
-                               }}
-                            >
-                              {parseInt(log.merge_request_id).toString()}
-                            </a>
-                          ) : (
-                            parseInt(log.merge_request_id).toString()
-                          )
-                        ) : "-"}
-                      </TableCell>
-                      <TableCell>{formatTime(log.executed_at)}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Box>
+        <ExecutionLogsTab
+           logs={logs}
+           loading={loading}
+           onRefresh={fetchLogs}
+           formatTime={formatTime}
+           getStatusText={getStatusText}
+           getStatusColor={getStatusColor}
+           pagination={pagination}
+           onPaginationChange={(newPage, newPageSize) => {
+             setPagination(prev => ({ ...prev, page: newPage, pageSize: newPageSize }));
+             fetchLogs(newPage, newPageSize);
+           }}
+         />
       )}
 
-      {activeTab === 2 && (
-        <Box>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              mb: 2,
-            }}
-          >
-            <Typography variant="h6">实时执行日志</Typography>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<RefreshIcon />}
-              onClick={() => setExecutionLogs([])}
-            >
-              清空日志
-            </Button>
-          </Box>
-
-          <Paper sx={{ maxHeight: 600, overflow: 'auto' }}>
-            {executionLogs.length === 0 ? (
-              <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
-                暂无实时日志，执行任务后将显示详细过程
-              </Box>
-            ) : (
-              executionLogs.map((log) => (
-                <Box
-                  key={log.id}
-                  sx={{
-                    p: 2,
-                    borderBottom: '1px solid #e0e0e0',
-                    '&:last-child': { borderBottom: 'none' }
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <Chip
-                      label={log.type}
-                      size="small"
-                      color={
-                        log.type === 'success' ? 'success' :
-                        log.type === 'error' ? 'error' :
-                        log.type === 'warning' ? 'warning' : 'default'
-                      }
-                      sx={{ mr: 1 }}
-                    />
-                    <Typography variant="caption" color="text.secondary">
-                      {formatTime(log.timestamp)}
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    {log.message}
-                  </Typography>
-                  {log.data && (
-                    <Box
-                      component="pre"
-                      sx={{
-                        backgroundColor: '#f5f5f5',
-                        p: 1,
-                        borderRadius: 1,
-                        fontSize: '0.75rem',
-                        overflow: 'auto',
-                        maxHeight: 200,
-                        fontFamily: 'monospace'
-                      }}
-                    >
-                      {log.data}
-                    </Box>
-                  )}
-                </Box>
-              ))
-            )}
-          </Paper>
-        </Box>
-      )}
+      {/* {activeTab === 2 && (
+        <RealtimeLogsTab
+           executionLogs={logs}
+           onClearLogs={() => setLogs([])}
+         />
+      )} */}
 
       {/* 新建/编辑任务对话框 */}
       <Dialog
