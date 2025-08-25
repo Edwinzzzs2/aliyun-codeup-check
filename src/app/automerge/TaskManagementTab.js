@@ -79,7 +79,9 @@ export default function TaskManagementTab({
           mb: 2,
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: "bold" }}>任务管理</Typography>
+        <Typography variant="h6" sx={{ fontWeight: "bold" }}>
+          任务管理
+        </Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -126,7 +128,7 @@ export default function TaskManagementTab({
                   label={params.value}
                   size="small"
                   variant="outlined"
-                  sx={{ fontSize: '0.75rem' }}
+                  sx={{ fontSize: "0.75rem" }}
                 />
               ),
             },
@@ -137,19 +139,21 @@ export default function TaskManagementTab({
               minWidth: 180,
               sortable: false,
               renderCell: (params) => (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                   <Chip
                     label={params.row.source_branch}
                     size="small"
                     color="primary"
-                    sx={{ fontSize: '0.75rem' }}
+                    sx={{ fontSize: "0.75rem" }}
                   />
-                  <Typography variant="caption" sx={{ mx: 0.5 }}>→</Typography>
+                  <Typography variant="caption" sx={{ mx: 0.5 }}>
+                    →
+                  </Typography>
                   <Chip
                     label={params.row.target_branch}
                     size="small"
                     color="secondary"
-                    sx={{ fontSize: '0.75rem' }}
+                    sx={{ fontSize: "0.75rem" }}
                   />
                 </Box>
               ),
@@ -173,26 +177,41 @@ export default function TaskManagementTab({
                   label={params.value ? "启用" : "禁用"}
                   color={params.value ? "success" : "default"}
                   size="small"
-                  sx={{ fontSize: '0.75rem' }}
+                  sx={{ fontSize: "0.75rem" }}
                 />
               ),
             },
             {
               field: "execution_time",
               headerName: "执行时间",
-              flex: 1.2,
-              minWidth: 140,
+              flex: 1.5,
+              minWidth: 180,
               sortable: false,
               renderCell: (params) => (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                  <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                    <Typography component="span" variant="caption" color="text.secondary">上次: </Typography>
-                    {formatTime(params.row.last_run)}
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                    <Typography component="span" variant="caption" color="text.secondary">下次: </Typography>
-                    {formatTime(params.row.next_run)}
-                  </Typography>
+                <Box
+                  sx={{ display: "flex", flexDirection: "column", gap: 0.3 }}
+                >
+                  {" "}
+                  <Typography variant="body2" sx={{ fontSize: "0.75rem" }}>
+                    {" "}
+                    <Typography
+                      component="span"
+                      variant="caption"
+                      color="text.secondary"
+                    >
+                      上次:{" "}
+                    </Typography>{" "}
+                    {formatTime(params.row.last_run)}{" "}
+                    <Typography
+                      component="span"
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ ml: 1 }}
+                    >
+                      下次:{" "}
+                    </Typography>{" "}
+                    {formatTime(params.row.next_run)}{" "}
+                  </Typography>{" "}
                 </Box>
               ),
             },
@@ -206,25 +225,37 @@ export default function TaskManagementTab({
               align: "center",
               renderCell: (params) => {
                 const isExecuting = executingTaskId === params.row.id;
-                const isAnyActionLoading = loading.action || executingTaskId !== null;
-                
+                const isAnyActionLoading =
+                  loading.action || executingTaskId !== null;
+
                 return (
-                  <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                  <Box
+                    sx={{ display: "flex", gap: 0.5, justifyContent: "center" }}
+                  >
                     <IconButton
                       size="small"
                       onClick={() => handleExecute(params.row.id)}
                       disabled={!params.row.enabled || isAnyActionLoading}
                       title="立即执行"
-                      sx={{ color: params.row.enabled && !isAnyActionLoading ? 'success.main' : 'disabled' }}
+                      sx={{
+                        color:
+                          params.row.enabled && !isAnyActionLoading
+                            ? "success.main"
+                            : "disabled",
+                      }}
                     >
-                      {isExecuting ? <CircularProgress size={16} /> : <PlayIcon fontSize="small" />}
+                      {isExecuting ? (
+                        <CircularProgress size={16} />
+                      ) : (
+                        <PlayIcon fontSize="small" />
+                      )}
                     </IconButton>
                     <IconButton
                       size="small"
                       onClick={() => onOpenDialog(params.row.originalData)}
                       title="编辑"
                       disabled={isAnyActionLoading}
-                      sx={{ color: 'primary.main' }}
+                      sx={{ color: "primary.main" }}
                     >
                       <EditIcon fontSize="small" />
                     </IconButton>
@@ -233,7 +264,7 @@ export default function TaskManagementTab({
                       onClick={() => onDelete(params.row.id)}
                       title="删除"
                       disabled={isAnyActionLoading}
-                      sx={{ color: 'error.main' }}
+                      sx={{ color: "error.main" }}
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
