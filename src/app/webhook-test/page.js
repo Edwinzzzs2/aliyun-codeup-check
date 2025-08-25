@@ -1,12 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Play, CheckCircle, XCircle } from 'lucide-react';
+import { 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  Button, 
+  TextField, 
+  Typography, 
+  Alert, 
+  CircularProgress, 
+  Box,
+  Paper
+} from '@mui/material';
+import { PlayArrow, CheckCircle, Error } from '@mui/icons-material';
 
 export default function WebhookTestPage() {
   const [secret, setSecret] = useState('');
@@ -43,95 +50,106 @@ export default function WebhookTestPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 max-w-2xl">
+    <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Play className="h-5 w-5" />
+          <Typography variant="h5" component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PlayArrow />
             Webhook 测试
-          </CardTitle>
-          <CardDescription>
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
             手动触发自动合并任务检查，用于测试 Webhook 功能
-          </CardDescription>
+          </Typography>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="secret">Webhook 密钥（可选）</Label>
-            <Input
-              id="secret"
+        <CardContent>
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" sx={{ mb: 1 }}>Webhook 密钥（可选）</Typography>
+            <TextField
+              fullWidth
               type="password"
               placeholder="如果设置了 WEBHOOK_SECRET 环境变量，请输入密钥"
               value={secret}
               onChange={(e) => setSecret(e.target.value)}
+              size="small"
             />
-          </div>
+          </Box>
 
           <Button 
             onClick={triggerWebhook} 
             disabled={loading}
-            className="w-full"
+            variant="contained"
+            fullWidth
+            startIcon={loading ? <CircularProgress size={16} /> : <PlayArrow />}
+            sx={{ mb: 3 }}
           >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                执行中...
-              </>
-            ) : (
-              <>
-                <Play className="mr-2 h-4 w-4" />
-                触发任务检查
-              </>
-            )}
+            {loading ? '执行中...' : '触发任务检查'}
           </Button>
 
           {result && (
-            <Alert className="border-green-200 bg-green-50">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
-                <div className="font-medium mb-2">{result.message}</div>
-                <div className="text-sm space-y-1">
-                  <div>执行时间: {new Date(result.timestamp).toLocaleString('zh-CN')}</div>
-                  {result.data && (
-                    <div>
-                      执行结果: {JSON.stringify(result.data, null, 2)}
-                    </div>
-                  )}
-                </div>
-              </AlertDescription>
+            <Alert severity="success" sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1 }}>
+                {result.message}
+              </Typography>
+              <Typography variant="caption" component="div">
+                <div>执行时间: {new Date(result.timestamp).toLocaleString('zh-CN')}</div>
+                {result.data && (
+                  <div style={{ marginTop: 4 }}>
+                    执行结果: {JSON.stringify(result.data, null, 2)}
+                  </div>
+                )}
+              </Typography>
             </Alert>
           )}
 
           {error && (
-            <Alert className="border-red-200 bg-red-50">
-              <XCircle className="h-4 w-4 text-red-600" />
-              <AlertDescription className="text-red-800">
-                <div className="font-medium">执行失败</div>
-                <div className="text-sm mt-1">{error}</div>
-              </AlertDescription>
+            <Alert severity="error" sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                执行失败
+              </Typography>
+              <Typography variant="caption" sx={{ mt: 0.5 }}>
+                {error}
+              </Typography>
             </Alert>
           )}
 
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <h3 className="font-medium mb-2">使用说明</h3>
-            <ul className="text-sm text-gray-600 space-y-1">
+          <Paper sx={{ p: 2, mt: 3, bgcolor: 'grey.50' }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'medium' }}>
+              使用说明
+            </Typography>
+            <Box component="ul" sx={{ m: 0, pl: 2, '& li': { mb: 0.5 } }}>
               <li>• 此页面用于测试 Webhook 功能是否正常工作</li>
               <li>• 如果设置了 WEBHOOK_SECRET 环境变量，需要输入正确的密钥</li>
               <li>• 执行成功后会显示任务检查结果</li>
               <li>• 可以在应用日志中查看详细的执行信息</li>
-            </ul>
-          </div>
+            </Box>
+          </Paper>
 
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-            <h3 className="font-medium mb-2 text-blue-800">Webhook URL</h3>
-            <code className="text-sm bg-white p-2 rounded border block text-blue-600">
+          <Paper sx={{ p: 2, mt: 2, bgcolor: 'primary.50' }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'medium', color: 'primary.main' }}>
+              Webhook URL
+            </Typography>
+            <Box 
+              component="code" 
+              sx={{ 
+                display: 'block',
+                p: 1, 
+                bgcolor: 'white', 
+                border: 1, 
+                borderColor: 'divider',
+                borderRadius: 1,
+                fontSize: '0.875rem',
+                color: 'primary.main',
+                fontFamily: 'monospace'
+              }}
+            >
               {typeof window !== 'undefined' ? window.location.origin : ''}/api/webhook/check-tasks
-            </code>
-            <p className="text-sm text-blue-600 mt-2">
+            </Box>
+            <Typography variant="caption" sx={{ mt: 1, display: 'block', color: 'primary.main' }}>
               外部服务可以通过 POST 或 GET 请求调用此 URL 来触发任务检查
-            </p>
-          </div>
+            </Typography>
+          </Paper>
         </CardContent>
       </Card>
-    </div>
+    </Box>
   );
 }
