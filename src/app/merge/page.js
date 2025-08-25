@@ -1,8 +1,6 @@
 "use client";
 import {
-  Autocomplete,
   Button,
-  TextField,
   Grid,
   Paper,
   Box,
@@ -25,31 +23,26 @@ import {
   useRepoChange,
 } from "../../contexts/TokenContext";
 import CompareDialog from "./CompareDialog";
+import BranchSelector from "../../components/BranchSelector";
 
 export default function MergeRequest() {
   const { token, orgId } = useTokenConfig();
   const { selectedRepo, repoChangeTimestamp } = useRepoChange();
   const { showMessage } = useTokenMessage();
 
-  // 分支选择状态 - 合并为一个对象
+  // 分支选择状态 - 简化为只保留选中的分支
   const [branchState, setBranchState] = useState({
     sourceBranch: null,
     targetBranch: null,
-    sourceBranches: [],
-    targetBranches: [],
-    searchSource: "",
-    searchTarget: "",
   });
 
-  // 加载状态 - 合并为一个对象
+  // 加载状态 - 移除分支加载状态
   const [loadingState, setLoadingState] = useState({
-    source: false,
-    target: false,
     creating: false,
     mrList: false,
   });
 
-  const searchTimerRef = useRef(null);
+
 
   // 合并请求列表相关状态
   const [mergeRequests, setMergeRequests] = useState([]);
@@ -70,15 +63,11 @@ export default function MergeRequest() {
   }, [branchState.sourceBranch, branchState.targetBranch]);
 
   useEffect(() => {
-    // 监听仓库变更，清空分支选择和数据
+    // 监听仓库变更，清空分支选择
     if (selectedRepo && repoChangeTimestamp) {
       setBranchState({
         sourceBranch: null,
         targetBranch: null,
-        sourceBranches: [],
-        targetBranches: [],
-        searchSource: "",
-        searchTarget: "",
       });
     }
   }, [selectedRepo, repoChangeTimestamp]);
@@ -146,59 +135,14 @@ export default function MergeRequest() {
     [selectedRepo, token, orgId, mrPerPage, showMessage]
   );
 
-  const fetchBranches = useCallback(
-    async (kind, q = "") => {
-      if (!token || !selectedRepo) return;
-      setLoadingState((prev) => ({ ...prev, [kind]: true }));
+  // 处理分支选择变化
+  const handleSourceBranchChange = useCallback((branch) => {
+    setBranchState((prev) => ({ ...prev, sourceBranch: branch }));
+  }, []);
 
-      const params = new URLSearchParams({
-        token,
-        orgId,
-        repoId: selectedRepo,
-        search: q,
-      });
-      try {
-        const res = await fetch(`/api/codeup/branches?${params.toString()}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        setBranchState((prev) => ({
-          ...prev,
-          [`${kind}Branches`]: data.result || [],
-        }));
-      } catch (e) {
-        console.error(e);
-        setBranchState((prev) => ({
-          ...prev,
-          [`${kind}Branches`]: [],
-        }));
-      } finally {
-        setLoadingState((prev) => ({ ...prev, [kind]: false }));
-      }
-    },
-    [token, selectedRepo, orgId]
-  );
-
-  useEffect(() => {
-    if (token && selectedRepo) {
-      fetchBranches("source", "");
-      fetchBranches("target", "");
-    }
-  }, [token, orgId, selectedRepo]);
-
-  const handleSearchChange = useCallback(
-    (kind, value) => {
-      setBranchState((prev) => ({
-        ...prev,
-        [`search${kind.charAt(0).toUpperCase() + kind.slice(1)}`]: value,
-      }));
-
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-      searchTimerRef.current = setTimeout(() => {
-        fetchBranches(kind, value);
-      }, 400);
-    },
-    [fetchBranches]
-  );
+  const handleTargetBranchChange = useCallback((branch) => {
+    setBranchState((prev) => ({ ...prev, targetBranch: branch }));
+  }, []);
 
   const handleCreateMergeRequest = useCallback(async () => {
     if (!branchState.sourceBranch || !branchState.targetBranch) {
@@ -465,47 +409,29 @@ export default function MergeRequest() {
           >
             合并请求：
           </Typography>
-          <Autocomplete
-            options={branchState.sourceBranches}
-            getOptionLabel={(option) => option.name}
-            loading={loadingState.source}
-            inputValue={branchState.searchSource}
-            onInputChange={(event, newInputValue) => {
-              handleSearchChange("source", newInputValue);
-            }}
-            onChange={(event, newValue) => {
-              setBranchState((prev) => ({ ...prev, sourceBranch: newValue }));
-            }}
+          <BranchSelector
+            token={token}
+            orgId={orgId}
+            repoId={selectedRepo}
+            label="源分支"
+            placeholder="输入或选择源分支..."
+            value={branchState.sourceBranch}
+            onChange={handleSourceBranchChange}
+            onError={showMessage}
             sx={{ minWidth: 200, flex: 1 }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="源分支"
-                placeholder="输入或选择源分支..."
-                size="small"
-              />
-            )}
+            size="small"
           />
-          <Autocomplete
-            options={branchState.targetBranches}
-            getOptionLabel={(option) => option.name}
-            loading={loadingState.target}
-            inputValue={branchState.searchTarget}
-            onInputChange={(event, newInputValue) => {
-              handleSearchChange("target", newInputValue);
-            }}
-            onChange={(event, newValue) => {
-              setBranchState((prev) => ({ ...prev, targetBranch: newValue }));
-            }}
+          <BranchSelector
+            token={token}
+            orgId={orgId}
+            repoId={selectedRepo}
+            label="目标分支"
+            placeholder="输入或选择目标分支..."
+            value={branchState.targetBranch}
+            onChange={handleTargetBranchChange}
+            onError={showMessage}
             sx={{ minWidth: 200, flex: 1 }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="目标分支"
-                placeholder="输入或选择目标分支..."
-                size="small"
-              />
-            )}
+            size="small"
           />
         </Box>
         <Box

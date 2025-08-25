@@ -61,11 +61,12 @@ const menuItems = [
     icon: <Schedule />,
     path: "/automerge",
   },
-  {
-    text: "Webhook测试",
-    icon: <Sync />,
-    path: "/webhook-test",
-  },
+  // Webhook测试页面已隐藏，但仍可通过 /webhook-test URL 直接访问
+  // {
+  //   text: "Webhook测试",
+  //   icon: <Sync />,
+  //   path: "/webhook-test",
+  // },
 ];
 
 // 内部布局组件

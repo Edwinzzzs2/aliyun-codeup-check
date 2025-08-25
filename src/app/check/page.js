@@ -23,6 +23,7 @@ import {
   useRepoChange,
   useGlobalLoading,
 } from "../../contexts/TokenContext";
+import BranchSelector from "../../components/BranchSelector";
 
 export default function HomePage() {
   const { token, orgId } = useTokenConfig();
@@ -39,7 +40,7 @@ export default function HomePage() {
   const searchTimerRef = useRef(null);
 
   // 合并状态检测相关状态
-  const [targetBranch, setTargetBranch] = useState("prod");
+  const [targetBranch, setTargetBranch] = useState(null);
   const [mergeStatus, setMergeStatus] = useState({});
   const [selectedBranchNames, setSelectedBranchNames] = useState([]);
 
@@ -59,6 +60,7 @@ export default function HomePage() {
       setSearchTerm("");
       setSelectedBranchNames([]);
       setMergeStatus({});
+      setTargetBranch(null); // 清空目标分支选择
       // 如果有选择的代码库且有token，立即获取分支
     }
     if (token && selectedRepo) {
@@ -132,8 +134,8 @@ export default function HomePage() {
 
   // 检测合并状态
   const checkMergeStatus = async () => {
-    if (!selectedRepo || !targetBranch.trim()) {
-      showMessage("请选择代码库并输入目标分支", "warning");
+    if (!selectedRepo || !targetBranch) {
+      showMessage("请选择代码库和目标分支", "warning");
       return;
     }
 
@@ -164,7 +166,7 @@ export default function HomePage() {
         token,
         orgId,
         repoId: selectedRepo,
-        target: targetBranch.trim(),
+        target: targetBranch.name,
         branches: selectedBranches.map((b) => ({
           name: b.name,
           commitId: b.commit?.id || "",
@@ -392,13 +394,17 @@ export default function HomePage() {
           >
             合并检测：
           </Typography>
-          <TextField
-            size="small"
+          <BranchSelector
+            token={token}
+            orgId={orgId}
+            repoId={selectedRepo}
             label="目标分支"
+            placeholder="输入或选择目标分支"
             value={targetBranch}
-            onChange={(e) => setTargetBranch(e.target.value)}
-            placeholder="输入目标分支名称"
-            sx={{ minWidth: 160 }}
+            onChange={setTargetBranch}
+            onError={showMessage}
+            sx={{ minWidth: 360 }}
+            size="small"
             disabled={loading.merge}
           />
           <Button
@@ -407,7 +413,7 @@ export default function HomePage() {
             onClick={checkMergeStatus}
             disabled={
               loading.merge ||
-              !targetBranch.trim() ||
+              !targetBranch ||
               selectedBranchNames.length === 0
             }
             sx={{ minWidth: 100 }}

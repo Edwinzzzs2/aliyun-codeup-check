@@ -25,12 +25,12 @@ import {
   FormControlLabel,
   Chip,
   IconButton,
-  Alert,
   Tabs,
   Tab,
   Grid,
   Autocomplete,
   CircularProgress,
+  LinearProgress,
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -47,6 +47,7 @@ import {
   useTokenMessage,
   useRepoChange,
 } from "../../contexts/TokenContext";
+import BranchSelector from "../../components/BranchSelector";
 
 export default function AutoMergePage() {
   const { token, orgId } = useTokenConfig();
@@ -54,16 +55,16 @@ export default function AutoMergePage() {
   const { selectedRepo } = useRepoChange();
 
   const [tasks, setTasks] = useState([]);
-  const [branches, setBranches] = useState([]);
   const [logs, setLogs] = useState([]);
   const [executionLogs, setExecutionLogs] = useState([]); // 新增：执行日志
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [activeTab, setActiveTab] = useState(0);
-  const [alert, setAlert] = useState({
-    show: false,
-    message: "",
-    severity: "info",
+
+  // 简化的loading状态管理
+  const [loading, setLoading] = useState({
+    data: false,    // 数据加载（tasks, logs）
+    action: false,  // 操作加载（creating, updating, deleting, executing）
   });
 
   // 时间格式化函数，与其他页面保持一致
@@ -102,62 +103,33 @@ export default function AutoMergePage() {
     }
   };
 
-  // 获取分支列表
-  const fetchBranches = async (repoId = null) => {
-    const targetRepoId = repoId || selectedRepo;
-    if (!token || !targetRepoId) {
-      console.log("缺少token或repoId，跳过分支获取");
-      return;
-    }
 
-    try {
-      const params = new URLSearchParams({
-        token,
-        orgId,
-        repoId: targetRepoId,
-        page: "1",
-        perPage: "100",
-      });
-
-      const response = await fetch(`/api/codeup/branches?${params.toString()}`);
-      const data = await response.json();
-
-      if (response.ok) {
-        // 兼容两种返回结构
-        let list = [];
-        if (Array.isArray(data)) {
-          list = data;
-        } else if (data?.result) {
-          list = Array.isArray(data.result) ? data.result : [];
-        }
-        setBranches(list);
-      } else {
-        console.error("获取分支列表失败:", data);
-        showMessage("获取分支列表失败", "error");
-      }
-    } catch (error) {
-      console.error("获取分支列表失败:", error);
-      showMessage("获取分支列表失败", "error");
-    }
-  };
 
   // 获取任务列表
   const fetchTasks = async () => {
+    console.log('AutoMergePage: fetchTasks called');
+    setLoading(prev => ({ ...prev, data: true }));
     try {
       const response = await fetch("/api/automerge/tasks");
       const data = await response.json();
+      console.log('AutoMergePage: fetchTasks response:', data);
       if (data.success) {
         setTasks(data.data || []);
+        console.log('AutoMergePage: tasks set to:', data.data || []);
+      } else {
+        console.log('AutoMergePage: fetchTasks failed:', data);
       }
     } catch (error) {
       console.error("获取任务列表失败:", error);
-      showAlert("获取任务列表失败", "error");
+      showMessage("获取任务列表失败", "error");
     } finally {
+      setLoading(prev => ({ ...prev, data: false }));
     }
   };
 
   // 获取执行日志
   const fetchLogs = async () => {
+    setLoading(prev => ({ ...prev, data: true }));
     try {
       const response = await fetch("/api/automerge/execute");
       const data = await response.json();
@@ -166,27 +138,26 @@ export default function AutoMergePage() {
       }
     } catch (error) {
       console.error("获取执行日志失败:", error);
+    } finally {
+      setLoading(prev => ({ ...prev, data: false }));
     }
   };
 
+  // 根据activeTab加载对应数据，包括初始化
   useEffect(() => {
-    fetchTasks();
-    fetchLogs();
-  }, []);
-
-  useEffect(() => {
-    if (token && selectedRepo) {
-      fetchBranches();
+    console.log('AutoMergePage: activeTab changed to:', activeTab);
+    if (activeTab === 0) {
+      console.log('AutoMergePage: Loading tasks...');
+      fetchTasks();
+    } else if (activeTab === 1) {
+      console.log('AutoMergePage: Loading logs...');
+      fetchLogs();
     }
-  }, [token, selectedRepo]);
+  }, [activeTab]);
 
-  const showAlert = (message, severity = "info") => {
-    setAlert({ show: true, message, severity });
-    setTimeout(
-      () => setAlert({ show: false, message: "", severity: "info" }),
-      3000
-    );
-  };
+
+
+
 
   const handleOpenDialog = (task = null) => {
     const repos = fetchRepos() || [];
@@ -202,8 +173,7 @@ export default function AutoMergePage() {
         repository_id: task.repository_id || selectedRepo || "",
         repository_name: taskRepo ? taskRepo.name : task.repository_name || "",
       });
-      // 根据任务的repository_id获取分支
-      fetchBranches(task.repository_id);
+
     } else {
       setEditingTask(null);
       setFormData({
@@ -215,8 +185,7 @@ export default function AutoMergePage() {
         repository_id: "",
         repository_name: "",
       });
-      // 新建任务时清空分支列表，等待用户选择代码仓库
-      setBranches([]);
+
     }
     setDialogOpen(true);
   };
@@ -227,6 +196,7 @@ export default function AutoMergePage() {
   };
 
   const handleSubmit = async () => {
+    setLoading(prev => ({ ...prev, action: true }));
     try {
       const url = editingTask
         ? `/api/automerge/tasks?id=${editingTask.id}`
@@ -245,15 +215,17 @@ export default function AutoMergePage() {
       const data = await response.json();
 
       if (data.success) {
-        showAlert(data.message, "success");
+        showMessage(data.message, "success");
         handleCloseDialog();
         fetchTasks();
       } else {
-        showAlert(data.message, "error");
+        showMessage(data.message, "error");
       }
     } catch (error) {
       console.error("保存任务失败:", error);
-      showAlert("保存任务失败", "error");
+      showMessage("保存任务失败", "error");
+    } finally {
+      setLoading(prev => ({ ...prev, action: false }));
     }
   };
 
@@ -262,6 +234,7 @@ export default function AutoMergePage() {
       return;
     }
 
+    setLoading(prev => ({ ...prev, action: true }));
     try {
       const response = await fetch(`/api/automerge/tasks?id=${taskId}`, {
         method: "DELETE",
@@ -270,14 +243,16 @@ export default function AutoMergePage() {
       const data = await response.json();
 
       if (data.success) {
-        showAlert(data.message, "success");
+        showMessage(data.message, "success");
         fetchTasks();
       } else {
-        showAlert(data.message, "error");
+        showMessage(data.message, "error");
       }
     } catch (error) {
       console.error("删除任务失败:", error);
-      showAlert("删除任务失败", "error");
+      showMessage("删除任务失败", "error");
+    } finally {
+      setLoading(prev => ({ ...prev, action: false }));
     }
   };
 
@@ -293,6 +268,7 @@ export default function AutoMergePage() {
   };
 
   const handleExecute = async (taskId) => {
+    setLoading(prev => ({ ...prev, action: true }));
     try {
       const startMsg = `开始执行自动合并任务，taskId: ${taskId}`;
       console.log('🚀', startMsg);
@@ -319,21 +295,23 @@ export default function AutoMergePage() {
         const successMsg = `任务执行成功！${data.data?.mergeRequestId ? `合并请求ID: ${data.data.mergeRequestId}` : ''}`;
         console.log('✅', successMsg);
         addExecutionLog(successMsg, 'success', data.data);
-        showAlert(successMsg, "success");
+        showMessage(successMsg, "success");
         fetchTasks();
         fetchLogs();
       } else {
         const errorMsg = `任务执行失败: ${data.message}${data.error ? ` (${data.error})` : ''}`;
         console.error('❌', errorMsg);
         addExecutionLog(errorMsg, 'error', data);
-        showAlert(errorMsg, "error");
+        showMessage(errorMsg, "error");
       }
     } catch (error) {
       const exceptionMsg = `执行任务异常: ${error.message}`;
       console.error('💥', exceptionMsg);
       console.error('📊 错误详情:', error.message, error.stack);
       addExecutionLog(exceptionMsg, 'error', { message: error.message, stack: error.stack });
-      showAlert(exceptionMsg, "error");
+      showMessage(exceptionMsg, "error");
+    } finally {
+      setLoading(prev => ({ ...prev, action: false }));
     }
   };
 
@@ -345,6 +323,8 @@ export default function AutoMergePage() {
         return "error";
       case "conflict":
         return "warning";
+      case "info":
+        return "info";
       default:
         return "default";
     }
@@ -358,6 +338,8 @@ export default function AutoMergePage() {
         return "失败";
       case "conflict":
         return "冲突";
+      case "info":
+        return "无变动";
       default:
         return status;
     }
@@ -365,15 +347,16 @@ export default function AutoMergePage() {
 
   return (
     <Box sx={{ p: 3 }}>
+      {/* Loading进度条 - 始终保留空间，避免页面抖动 */}
+      <Box sx={{ width: "100%", height: "4px", mb: 2 }}>
+        {(loading.data || loading.action) && <LinearProgress />}
+      </Box>
+      
       <Typography variant="h4" gutterBottom>
         自动合并管理
       </Typography>
 
-      {alert.show && (
-        <Alert severity={alert.severity} sx={{ mb: 2 }}>
-          {alert.message}
-        </Alert>
-      )}
+
 
       {/* {(!token || !selectedRepo) && (
         <Alert severity="warning" sx={{ mb: 2 }}>
@@ -386,9 +369,9 @@ export default function AutoMergePage() {
         onChange={(e, newValue) => setActiveTab(newValue)}
         sx={{ mb: 3 }}
       >
-        <Tab label={`任务管理 (${tasks.length})`} />
-        <Tab label={`执行日志 (${logs.length})`} />
-        <Tab label={`实时日志 (${executionLogs.length})`} />
+        <Tab label="任务管理" />
+        <Tab label="执行日志" />
+        <Tab label="实时日志" />
       </Tabs>
 
       {activeTab === 0 && (
@@ -415,7 +398,7 @@ export default function AutoMergePage() {
           <TableContainer 
             component={Paper} 
             sx={{ 
-              maxHeight: 'calc(100vh - 300px)', 
+              maxHeight: 'calc(100vh - 400px)', 
               overflow: 'auto',
               '& .MuiTableCell-head': {
                 backgroundColor: '#f5f5f5',
@@ -437,7 +420,27 @@ export default function AutoMergePage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {tasks.map((task) => (
+                {loading.data ? (
+                  <TableRow>
+                    <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                        <CircularProgress size={20} />
+                        <Typography variant="body2" color="text.secondary">
+                          加载数据中...
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ) : tasks.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        暂无任务
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  tasks.map((task) => (
                   <TableRow key={task.id} hover>
                     <TableCell sx={{ fontWeight: 500 }}>{task.name}</TableCell>
                     <TableCell>
@@ -477,13 +480,13 @@ export default function AutoMergePage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">上次:</Typography>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                         <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                          <Typography component="span" variant="caption" color="text.secondary">上次: </Typography>
                           {formatTime(task.last_run)}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">下次:</Typography>
                         <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                          <Typography component="span" variant="caption" color="text.secondary">下次: </Typography>
                           {formatTime(task.next_run)}
                         </Typography>
                       </Box>
@@ -493,16 +496,17 @@ export default function AutoMergePage() {
                         <IconButton
                           size="small"
                           onClick={() => handleExecute(task.id)}
-                          disabled={!task.enabled}
+                          disabled={!task.enabled || loading.action}
                           title="立即执行"
-                          sx={{ color: task.enabled ? 'success.main' : 'disabled' }}
+                          sx={{ color: task.enabled && !loading.action ? 'success.main' : 'disabled' }}
                         >
-                          <PlayIcon fontSize="small" />
+                          {loading.action ? <CircularProgress size={16} /> : <PlayIcon fontSize="small" />}
                         </IconButton>
                         <IconButton
                           size="small"
                           onClick={() => handleOpenDialog(task)}
                           title="编辑"
+                          disabled={loading.action}
                           sx={{ color: 'primary.main' }}
                         >
                           <EditIcon fontSize="small" />
@@ -511,22 +515,15 @@ export default function AutoMergePage() {
                           size="small"
                           onClick={() => handleDelete(task.id)}
                           title="删除"
+                          disabled={loading.action}
                           sx={{ color: 'error.main' }}
                         >
-                          <DeleteIcon fontSize="small" />
+                          {loading.action ? <CircularProgress size={16} /> : <DeleteIcon fontSize="small" />}
                         </IconButton>
                       </Box>
                     </TableCell>
                   </TableRow>
-                ))}
-                {tasks.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        暂无自动合并任务
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
@@ -548,17 +545,18 @@ export default function AutoMergePage() {
             <Button
               variant="outlined"
               size="small"
-              startIcon={<RefreshIcon />}
+              startIcon={loading.data ? <CircularProgress size={16} /> : <RefreshIcon />}
               onClick={fetchLogs}
+              disabled={loading.data}
             >
-              刷新
+              {loading.data ? "刷新中..." : "刷新"}
             </Button>
           </Box>
 
           <TableContainer 
             component={Paper} 
             sx={{ 
-              maxHeight: 'calc(100vh - 300px)', 
+              maxHeight: 'calc(100vh - 350px)', 
               overflow: 'auto',
               '& .MuiTableCell-head': {
                 backgroundColor: '#f5f5f5',
@@ -570,35 +568,73 @@ export default function AutoMergePage() {
             <Table stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ minWidth: 120 }}>任务名称</TableCell>
-                  <TableCell sx={{ minWidth: 100 }}>执行状态</TableCell>
-                  <TableCell sx={{ minWidth: 200 }}>执行信息</TableCell>
-                  <TableCell sx={{ minWidth: 120 }}>合并请求ID</TableCell>
-                  <TableCell sx={{ minWidth: 140 }}>执行时间</TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>任务名称</TableCell>
+                  <TableCell sx={{ minWidth: 80 }}>执行状态</TableCell>
+                  <TableCell sx={{ minWidth: 150, maxWidth: 300 }}>执行信息</TableCell>
+                  <TableCell sx={{ minWidth: 100 }}>合并请求ID</TableCell>
+                  <TableCell sx={{ minWidth: 120 }}>执行时间</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {logs.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell>{log.task_name}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={getStatusText(log.status)}
-                        color={getStatusColor(log.status)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{log.message}</TableCell>
-                    <TableCell>{log.merge_request_id ? parseInt(log.merge_request_id).toString() : "-"}</TableCell>
-                    <TableCell>{formatTime(log.executed_at)}</TableCell>
-                  </TableRow>
-                ))}
-                {logs.length === 0 && (
+                {loading.data ? (
                   <TableRow>
-                    <TableCell colSpan={5} align="center">
-                      暂无执行日志
+                    <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                        <CircularProgress size={20} />
+                        <Typography variant="body2" color="text.secondary">
+                          加载数据中...
+                        </Typography>
+                      </Box>
                     </TableCell>
                   </TableRow>
+                ) : logs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        暂无执行日志
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  logs.map((log) => (
+                    <TableRow key={log.id}>
+                      <TableCell>{log.task_name}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={getStatusText(log.status)}
+                          color={getStatusColor(log.status)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell sx={{ 
+                        maxWidth: 300, 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis', 
+                        whiteSpace: 'nowrap' 
+                      }} title={log.message}>{log.message}</TableCell>
+                      <TableCell>
+                        {log.merge_request_id ? (
+                          log.merge_request_detail_url ? (
+                            <a 
+                              href={log.merge_request_detail_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              style={{
+                                 color: '#1976d2',
+                                 textDecoration: 'underline',
+                                 cursor: 'pointer'
+                               }}
+                            >
+                              {parseInt(log.merge_request_id).toString()}
+                            </a>
+                          ) : (
+                            parseInt(log.merge_request_id).toString()
+                          )
+                        ) : "-"}
+                      </TableCell>
+                      <TableCell>{formatTime(log.executed_at)}</TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
@@ -722,8 +758,7 @@ export default function AutoMergePage() {
                     source_branch: "",
                     target_branch: "",
                   });
-                  // 选择代码仓库后获取该仓库的分支
-                  fetchBranches(selectedRepoId);
+
                 }}
                 label="代码仓库"
                 // disabled
@@ -735,39 +770,43 @@ export default function AutoMergePage() {
                 ))}
               </Select>
             </FormControl>
-            <FormControl fullWidth margin="normal" required>
-              <InputLabel>源分支</InputLabel>
-              <Select
-                value={formData.source_branch}
-                onChange={(e) =>
-                  setFormData({ ...formData, source_branch: e.target.value })
-                }
+            <Box sx={{ mt: 2, mb: 1 }}>
+              <BranchSelector
+                token={token}
+                orgId={orgId}
+                repoId={formData.repository_id}
                 label="源分支"
-              >
-                {branches.map((branch) => (
-                  <MenuItem key={branch.name} value={branch.name}>
-                    {branch.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                placeholder="输入或选择源分支..."
+                value={formData.source_branch ? { name: formData.source_branch } : null}
+                onChange={(branch) => {
+                  setFormData({ 
+                    ...formData, 
+                    source_branch: branch ? branch.name : "" 
+                  });
+                }}
+                onError={showMessage}
+                sx={{ width: '100%' }}
+              />
+            </Box>
 
-            <FormControl fullWidth margin="normal" required>
-              <InputLabel>目标分支</InputLabel>
-              <Select
-                value={formData.target_branch}
-                onChange={(e) =>
-                  setFormData({ ...formData, target_branch: e.target.value })
-                }
+            <Box sx={{ mt: 2, mb: 1 }}>
+              <BranchSelector
+                token={token}
+                orgId={orgId}
+                repoId={formData.repository_id}
                 label="目标分支"
-              >
-                {branches.map((branch) => (
-                  <MenuItem key={branch.name} value={branch.name}>
-                    {branch.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                placeholder="输入或选择目标分支..."
+                value={formData.target_branch ? { name: formData.target_branch } : null}
+                onChange={(branch) => {
+                  setFormData({ 
+                    ...formData, 
+                    target_branch: branch ? branch.name : "" 
+                  });
+                }}
+                onError={showMessage}
+                sx={{ width: '100%' }}
+              />
+            </Box>
 
             <TextField
               fullWidth
@@ -800,9 +839,16 @@ export default function AutoMergePage() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>取消</Button>
-          <Button onClick={handleSubmit} variant="contained">
-            {editingTask ? "更新" : "创建"}
+          <Button onClick={handleCloseDialog} disabled={loading.action}>
+            取消
+          </Button>
+          <Button 
+            onClick={handleSubmit} 
+            variant="contained"
+            disabled={loading.action}
+            startIcon={loading.action ? <CircularProgress size={16} /> : null}
+          >
+            {loading.action ? (editingTask ? "更新中..." : "创建中...") : (editingTask ? "更新" : "创建")}
           </Button>
         </DialogActions>
       </Dialog>

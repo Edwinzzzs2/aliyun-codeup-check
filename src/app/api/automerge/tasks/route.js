@@ -19,7 +19,16 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     // 创建新任务
-    const { name, source_branch, target_branch, interval_minutes } = await request.json();
+    const { 
+      name, 
+      source_branch, 
+      target_branch, 
+      interval_minutes, 
+      enabled = true,
+      execute_user,
+      repository_id,
+      repository_name 
+    } = await request.json();
     
     if (!name || !source_branch || !target_branch || !interval_minutes) {
       return NextResponse.json({ 
@@ -39,7 +48,11 @@ export async function POST(request) {
       name,
       source_branch,
       target_branch,
-      interval_minutes: parseInt(interval_minutes)
+      interval_minutes: parseInt(interval_minutes),
+      enabled,
+      execute_user,
+      repository_id,
+      repository_name
     });
 
     return NextResponse.json({ 

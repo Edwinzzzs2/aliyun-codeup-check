@@ -2,6 +2,7 @@ import { AutoMergeDB } from '../../../../../lib/database.supabase';
 import { NextRequest, NextResponse } from 'next/server';
 import { POST as createMergeRequest } from '../../codeup/create-request/route.js';
 import { POST as executeMerge } from '../../codeup/merge/route.js';
+import { POST as compareRequest } from '../../codeup/compare/route.js';
 
 export async function POST(request) {
   try {
@@ -109,7 +110,81 @@ export async function executeAutoMerge(task) {
       throw new Error('任务缺少仓库ID');
     }
 
-    // 第一步：创建合并请求
+    // 第一步：检查分支是否有变动
+    console.log('🔍 开始检查分支变动:', `${task.source_branch} -> ${task.target_branch}`);
+    
+    try {
+      const comparePayload = {
+        token,
+        orgId,
+        repoId: task.repository_id,
+        from: task.target_branch,
+        to: task.source_branch,
+        sourceType: 'branch',
+        targetType: 'branch'
+      };
+      
+      // 创建模拟的Request对象
+      const compareRequestObj = new Request('internal://api/codeup/compare', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(comparePayload)
+      });
+      
+      const compareResponse = await compareRequest(compareRequestObj);
+      
+      if (!compareResponse.ok) {
+        console.warn('⚠️ 分支比较检查失败，继续执行合并操作');
+      } else {
+        const compareData = await compareResponse.json();
+        console.log('📊 分支比较结果:', JSON.stringify({
+          totalCommits: compareData.commits?.length || 0,
+          totalDiffs: compareData.diffs?.length || 0,
+          hasChanges: (compareData.commits?.length || 0) > 0 || (compareData.diffs?.length || 0) > 0
+        }, null, 2));
+        
+        // 检查是否有变动
+        const hasCommits = compareData.commits && compareData.commits.length > 0;
+        const hasDiffs = compareData.diffs && compareData.diffs.length > 0;
+        
+        if (!hasCommits && !hasDiffs) {
+          console.log('ℹ️ 分支间无变动，跳过合并操作');
+          
+          // 记录无变动的info日志
+          await AutoMergeDB.logExecution(
+            task.name,
+            'info',
+            `分支 ${task.source_branch} 与 ${task.target_branch} 之间无变动，跳过合并操作`
+          );
+          
+          // 更新任务的执行时间
+          const nextRun = new Date(startTime.getTime() + task.interval_minutes * 60 * 1000);
+          await AutoMergeDB.updateTaskRunTime(
+            task.id,
+            startTime.toISOString(),
+            nextRun.toISOString()
+          );
+          
+          const infoResult = {
+            status: 'info',
+            message: '分支间无变动，跳过合并操作',
+            executedAt: startTime,
+            nextRun: nextRun
+          };
+          
+          console.log('ℹ️ 自动合并任务完成（无变动）:', JSON.stringify(infoResult, null, 2));
+          return infoResult;
+        }
+        
+        console.log('✅ 检测到分支变动，继续执行合并操作');
+      }
+    } catch (compareError) {
+      console.warn('⚠️ 分支比较检查异常，继续执行合并操作:', compareError.message);
+    }
+
+    // 第二步：创建合并请求
     const createMergeRequestPayload = {
       token,
       orgId,
@@ -145,7 +220,9 @@ export async function executeAutoMerge(task) {
     const mergeRequestData = await createResponse.json();
     console.log('✅ 创建合并请求成功，返回数据:', JSON.stringify(mergeRequestData, null, 2));
     const mergeRequestId = mergeRequestData.localId || mergeRequestData.id;
+    const mergeRequestDetailUrl = mergeRequestData.detailUrl || '';
     console.log('mergeRequestId', mergeRequestId)
+    console.log('mergeRequestDetailUrl', mergeRequestDetailUrl)
     if (!mergeRequestId) {
       throw new Error('创建合并请求成功但未返回有效的请求ID');
     }
@@ -155,10 +232,16 @@ export async function executeAutoMerge(task) {
       task.name,
       'success',
       `成功创建合并请求: ${mergeRequestId}`,
-      mergeRequestId
+      mergeRequestId,
+      null, // operator
+      null, // requestData
+      null, // responseData
+      null, // errorDetails
+      'auto', // executionType
+      mergeRequestDetailUrl
     );
 
-    // 第二步：执行合并操作
+    // 第三步：执行合并操作
     const mergePayload = {
       organizationId: orgId,
       repositoryId: task.repository_id,
@@ -205,7 +288,13 @@ export async function executeAutoMerge(task) {
       task.name,
       'success',
       `自动合并完全成功，合并请求ID: ${mergeRequestId}`,
-      mergeRequestId
+      mergeRequestId,
+      null, // operator
+      null, // requestData
+      null, // responseData
+      null, // errorDetails
+      'auto', // executionType
+      mergeRequestDetailUrl
     );
 
     // 更新任务的执行时间

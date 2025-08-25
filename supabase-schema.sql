@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS auto_merge_logs (
     status TEXT NOT NULL,
     message TEXT,
     merge_request_id TEXT,
+    merge_request_detail_url TEXT,
     operator TEXT,
     request_data TEXT,
     response_data TEXT,

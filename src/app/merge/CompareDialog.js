@@ -364,8 +364,8 @@ const CompareDialog = ({
       }}
     >
       <DialogTitle>
-        代码对比: {targetBranch?.name || targetBranch} →{" "}
-        {sourceBranch?.name || sourceBranch}
+        代码对比:  {sourceBranch?.name || sourceBranch}{" "}→{" "}
+           {targetBranch?.name || targetBranch}
         <IconButton onClick={handleClose} size="small" sx={{ color: "white" }}>
           <CloseIcon />
         </IconButton>
