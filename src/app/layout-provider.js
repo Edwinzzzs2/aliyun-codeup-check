@@ -40,6 +40,7 @@ import {
   VisibilityOff,
   ExpandMore,
   Schedule,
+  Notifications,
 } from "@mui/icons-material";
 import { TokenProvider, useToken, useTokenDialog, useTokenMessage, useGlobalLoading, useRepoChange, useTokenConfigDialog } from "../contexts/TokenContext";
 
@@ -60,6 +61,11 @@ const menuItems = [
     text: "自动合并",
     icon: <Schedule />,
     path: "/automerge",
+  },
+  {
+    text: "飞书通知",
+    icon: <Notifications />,
+    path: "/feishu",
   },
   // Webhook测试页面已隐藏，但仍可通过 /webhook-test URL 直接访问
   // {

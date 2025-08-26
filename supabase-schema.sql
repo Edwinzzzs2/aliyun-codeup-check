@@ -56,6 +56,28 @@ CREATE POLICY "Enable all operations for auto_merge_logs" ON auto_merge_logs
 -- Removed automatic updated_at trigger to allow application-controlled time formatting
 -- This ensures consistent time format across all timestamp fields
 
+-- 创建飞书通知配置表
+CREATE TABLE IF NOT EXISTS feishu_notification_config (
+    id BIGSERIAL PRIMARY KEY,
+    webhook_url TEXT NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT true,
+    notify_on_success BOOLEAN NOT NULL DEFAULT true,
+    notify_on_failure BOOLEAN NOT NULL DEFAULT true,
+    custom_message_template TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- 创建索引
+CREATE INDEX IF NOT EXISTS idx_feishu_config_enabled ON feishu_notification_config(enabled);
+
+-- 启用行级安全策略
+ALTER TABLE feishu_notification_config ENABLE ROW LEVEL SECURITY;
+
+-- 创建策略
+CREATE POLICY "Enable all operations for feishu_notification_config" ON feishu_notification_config
+    FOR ALL USING (true) WITH CHECK (true);
+
 -- 插入示例数据（可选）
 -- INSERT INTO auto_merge_tasks (name, source_branch, target_branch, interval_minutes, repository_id, repository_name)
 -- VALUES ('示例任务', 'develop', 'master', 60, '123456', '示例仓库');

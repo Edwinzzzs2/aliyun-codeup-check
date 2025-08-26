@@ -368,6 +368,26 @@ export async function executeAutoMerge(task) {
       mergeRequestDetailUrl
     );
 
+    // 发送飞书成功通知
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/feishu/notify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: 'auto_merge',
+          taskName: task.name,
+          status: 'success',
+          message: successMessage,
+          mergeRequestId: mergeRequestId,
+          mergeRequestUrl: mergeRequestDetailUrl
+        })
+      });
+    } catch (notifyError) {
+      console.warn('发送飞书成功通知失败:', notifyError.message);
+    }
+
     // 更新任务的执行时间
     const nextRun = new Date(startTime.getTime() + task.interval_minutes * 60 * 1000);
     await AutoMergeDB.updateTaskRunTime(
@@ -406,6 +426,26 @@ export async function executeAutoMerge(task) {
       'failed',
       failureMessage
     );
+
+    // 发送飞书失败通知
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/feishu/notify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: 'auto_merge',
+          taskName: task.name,
+          status: 'failed',
+          message: failureMessage,
+          mergeRequestId: null,
+          mergeRequestUrl: null
+        })
+      });
+    } catch (notifyError) {
+      console.warn('发送飞书失败通知失败:', notifyError.message);
+    }
 
     // 仍然更新下次执行时间
     const nextRun = new Date(startTime.getTime() + task.interval_minutes * 60 * 1000);
