@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { POST as createMergeRequest } from '../../codeup/create-request/route.js';
 import { POST as executeMerge } from '../../codeup/merge/route.js';
 import { POST as compareRequest } from '../../codeup/compare/route.js';
+import { GET as getBranchDetail } from '../../codeup/branch-detail/route.js';
 
 export async function POST(request) {
   try {
@@ -202,15 +203,56 @@ export async function executeAutoMerge(task) {
       console.warn('⚠️ 分支比较检查异常，继续执行合并操作:', compareError.message);
     }
 
-    // 第二步：创建合并请求
+    // 第二步：查询源分支信息
+    console.log('🔍 开始查询源分支信息:', task.source_branch);
+    
+    let sourceBranchInfo = null;
+    let mergeTitle = `[自动合并] ${task.source_branch} -> ${task.target_branch}`;
+    let mergeDescription = `由自动合并任务"${task.name}"创建`;
+    
+    try {
+      // 创建分支详情查询请求
+      const branchDetailUrl = `/api/codeup/branch-detail?token=${encodeURIComponent(token)}&orgId=${encodeURIComponent(orgId)}&repoId=${encodeURIComponent(task.repository_id)}&branchName=${encodeURIComponent(task.source_branch)}`;
+      const branchDetailRequest = new Request(`internal:${branchDetailUrl}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const branchDetailResponse = await getBranchDetail(branchDetailRequest);
+      
+      if (branchDetailResponse.ok) {
+        sourceBranchInfo = await branchDetailResponse.json();
+        console.log('✅ 源分支信息查询成功:', JSON.stringify(sourceBranchInfo, null, 2));
+        
+        // 使用commit对象中的message作为合并请求标题（如果存在）
+        const commitInfo = sourceBranchInfo.commit || sourceBranchInfo;
+        if (commitInfo.title) {
+          mergeTitle = commitInfo.title;
+        }
+        
+        // 在描述中添加分支信息
+        mergeDescription = `由自动合并任务"${task.name}"创建`;
+        if (commitInfo.authorName || (commitInfo.author && commitInfo.author.name)) {
+          mergeDescription += `，最近提交人: ${commitInfo.authorName || commitInfo.author.name}`;
+        }
+      } else {
+        console.warn('⚠️ 源分支信息查询失败，使用默认标题和描述');
+      }
+    } catch (branchError) {
+      console.warn('⚠️ 源分支信息查询异常，使用默认标题和描述:', branchError.message);
+    }
+
+    // 第三步：创建合并请求
     const createMergeRequestPayload = {
       token,
       orgId,
       repoId: task.repository_id,
       sourceBranch: task.source_branch,
       targetBranch: task.target_branch,
-      title: `[自动合并] ${task.source_branch} -> ${task.target_branch}`,
-      description: `由自动合并任务"${task.name}"创建`,
+      title: mergeTitle,
+      description: mergeDescription,
     };
 
     // 调用创建合并请求API
@@ -245,11 +287,20 @@ export async function executeAutoMerge(task) {
       throw new Error('创建合并请求成功但未返回有效的请求ID');
     }
 
+    // 构建包含提交信息的创建合并请求成功消息
+    let createSuccessMessage = `成功创建合并请求: ${mergeRequestId}`;
+    if (sourceBranchInfo && sourceBranchInfo.commit) {
+      const commitInfo = sourceBranchInfo.commit;
+      const commitTitle = commitInfo.title || commitInfo.message || '无标题';
+      const commitAuthor = commitInfo.authorName || (commitInfo.author && commitInfo.author.name) || '未知作者';
+      createSuccessMessage += `。最近提交信息: ${commitTitle}，提交人: ${commitAuthor}`;
+    }
+    
     // 记录创建合并请求成功的日志
     await AutoMergeDB.logExecution(
       task.name,
       'success',
-      `成功创建合并请求: ${mergeRequestId}`,
+      createSuccessMessage,
       mergeRequestId,
       null, // operator
       null, // requestData
@@ -259,7 +310,7 @@ export async function executeAutoMerge(task) {
       mergeRequestDetailUrl
     );
 
-    // 第三步：执行合并操作
+    // 第四步：执行合并操作
     const mergePayload = {
       organizationId: orgId,
       repositoryId: task.repository_id,
@@ -301,11 +352,13 @@ export async function executeAutoMerge(task) {
     const mergeResult = await mergeResponse.json();
     console.log('✅ 合并操作成功，返回数据:', JSON.stringify(mergeResult, null, 2));
 
+    // 构建包含提交信息的成功消息
+    const successMessage = `自动合并完全成功，合并请求ID: ${mergeRequestId}`;
     // 记录完全成功日志
     await AutoMergeDB.logExecution(
       task.name,
       'success',
-      `自动合并完全成功，合并请求ID: ${mergeRequestId}`,
+      successMessage,
       mergeRequestId,
       null, // operator
       null, // requestData
@@ -338,11 +391,20 @@ export async function executeAutoMerge(task) {
     console.error('💥 自动合并任务执行失败:', error.message);
     console.error('📊 错误堆栈:', error.stack);
     
+    // 构建包含提交信息的失败消息
+    let failureMessage = `自动合并执行失败: ${error.message}`;
+    if (sourceBranchInfo && sourceBranchInfo.commit) {
+      const commitInfo = sourceBranchInfo.commit;
+      const commitTitle = commitInfo.title || commitInfo.message || '无标题';
+      const commitAuthor = commitInfo.authorName || (commitInfo.author && commitInfo.author.name) || '未知作者';
+      failureMessage += `。最近提交信息: ${commitTitle}，提交人: ${commitAuthor}`;
+    }
+
     // 记录失败日志
     await AutoMergeDB.logExecution(
       task.name,
       'failed',
-      `自动合并执行失败: ${error.message}`
+      failureMessage
     );
 
     // 仍然更新下次执行时间
