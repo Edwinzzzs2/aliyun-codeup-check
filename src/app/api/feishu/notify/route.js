@@ -64,7 +64,7 @@ export async function POST(request) {
             {
               tag: "div",
               text: {
-                content: `**仓库名称:** ${repositoryName || "未知任务"}（任务名称：${taskName}）`,
+                content: `**合并仓库:** ${repositoryName || "未知任务"}（任务名称：${taskName}）`,
                 tag: "lark_md",
               },
             },
@@ -80,7 +80,7 @@ export async function POST(request) {
             {
               tag: "div",
               text: {
-                content: `**合入信息:** ${message || "无"}`,
+                content: `**合并信息:** ${message || "无"}`,
                 tag: "lark_md",
               },
             },
@@ -100,7 +100,7 @@ export async function POST(request) {
         {
           tag: "button",
           text: {
-            content: "通知配置",
+            content: "自动任务配置",
             tag: "plain_text",
           },
           type: "default",
@@ -113,7 +113,7 @@ export async function POST(request) {
         actions.push({
           tag: "button",
           text: {
-            content: "查看合并",
+            content: "查看合并请求",
             tag: "plain_text",
           },
           type: "primary",
