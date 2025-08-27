@@ -354,7 +354,7 @@ export async function executeAutoMerge(task) {
     console.log('✅ 合并操作成功，返回数据:', JSON.stringify(mergeResult, null, 2));
 
     // 构建包含提交信息的成功消息
-    const successMessage = `${sourceBranchInfo.commit.title} || 自动合并完全成功，合并请求ID: ${mergeRequestId}`;
+    const successMessage = `${sourceBranchInfo.commit.title}`;
     // 记录完全成功日志
     await AutoMergeDB.logExecution(
       task.name,
