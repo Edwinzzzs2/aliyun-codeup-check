@@ -525,7 +525,7 @@ export default function MergeRequest() {
         </Box>
         <Box sx={{ flex: 1, minHeight: 0 }}>
           <DataGrid
-            rows={mergeRequests.map((mr, index) => ({
+              rows={mergeRequests.map((mr, index) => ({
               id: mr.localId || mr.id || index,
               title: mr.title,
               description: mr.description,
@@ -543,7 +543,7 @@ export default function MergeRequest() {
               {
                 field: "title",
                 headerName: "标题",
-                flex: 1.5,
+                flex: 2,
                 minWidth: 250,
                 renderCell: (params) => (
                   <Box
@@ -561,27 +561,30 @@ export default function MergeRequest() {
                       variant="body2"
                       sx={{
                         fontWeight: "medium",
-                        whiteSpace: "normal",
-                        wordBreak: "break-word",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
                         lineHeight: 1.3,
                       }}
                     >
-                      {params.row.title}
+                      {params.row.title.length > 60
+                          ? `${params.row.title.substring(0, 60)}...`
+                          : params.row.title}
                     </Typography>
                     {params.row.description && (
                       <Typography
                         variant="caption"
                         color="text.secondary"
                         sx={{
-                          display: "block",
-                          whiteSpace: "normal",
-                          wordBreak: "break-word",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
                           lineHeight: 1.2,
                           mt: 0.5,
                         }}
                       >
-                        {params.row.description.length > 80
-                          ? `${params.row.description.substring(0, 80)}...`
+                        {params.row.description.length > 60
+                          ? `${params.row.description.substring(0, 60)}...`
                           : params.row.description}
                       </Typography>
                     )}

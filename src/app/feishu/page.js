@@ -200,8 +200,26 @@ export default function FeishuConfigPage() {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Paper sx={{ p: 2, mb: 3 }}>
+    <Box
+      sx={{
+        minHeight: "100vh",
+      }}
+    >
+      <Paper
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 2,
+          p: 2,
+          backgroundColor: "rgba(255, 255, 255, 0.95)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+          borderRadius: 2,
+          border: "1px solid rgba(255,255,255,0.3)",
+          backdropFilter: "blur(10px)",
+        }}
+      >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
           <Notifications color="primary" fontSize="medium" />
           <Typography variant="h6" component="h1" sx={{ fontWeight: 600 }}>
@@ -212,8 +230,9 @@ export default function FeishuConfigPage() {
             color={config.enabled ? "success" : "default"}
             size="small"
           />
-          <Box sx={{ flexGrow: 1 }} />
-          <Box sx={{ display: "flex", gap: 1.5 }}>
+        </Box>
+        <Box sx={{ flexGrow: 1 }} />
+        <Box sx={{ display: "flex", gap: 1.5 }}>
             <Button
               variant="contained"
               startIcon={
@@ -249,11 +268,24 @@ export default function FeishuConfigPage() {
               {loading.delete ? "删除中..." : "删除配置"}
             </Button>
           </Box>
-        </Box>
       </Paper>
 
       {/* 基础配置（上下结构） */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper
+        sx={{
+          width: "100%",
+          mt: 3,
+          p: 2,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+          borderRadius: 2,
+          border: "1px solid rgba(255,255,255,0.3)",
+          backdropFilter: "blur(10px)",
+          height: "calc(100vh - 220px)", // 固定高度
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
         <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
           基础配置
         </Typography>
@@ -323,9 +355,9 @@ export default function FeishuConfigPage() {
         <TextField
           fullWidth
           multiline
-          rows={6}
+          rows={5}
           label="消息模板"
-          placeholder="留空使用默认模板。\n\n可用变量说明：\n{taskName} - 自动合并任务名称\n{repositoryName} - 仓库名称\n{sourceBranch} - 源分支名称\n{targetBranch} - 目标分支名称\n{mergeTitle} - 合并标题\n{status} - 执行状态（成功/失败）\n{message} - 详细消息\n{mergeRequestId} - 合并请求ID\n{mergeRequestUrl} - 合并请求链接"
+          placeholder={`留空使用默认模板。可用变量说明：{taskName} - 自动合并任务名称 | {repositoryName} - 仓库名称 | {sourceBranch} - 源分支名称 | {targetBranch} - 目标分支名称 | {mergeTitle} - 合并标题 | {status} - 执行状态（成功/失败）| {message} - 详细消息 | {mergeRequestId} - 合并请求ID | {mergeRequestUrl} - 合并请求链接`}
           value={config.custom_message_template ?? ""}
           onChange={(e) =>
             handleInputChange("custom_message_template", e.target.value)
