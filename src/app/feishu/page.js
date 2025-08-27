@@ -126,6 +126,10 @@ export default function FeishuConfigPage() {
           message: "这是一条测试消息，用于验证飞书通知配置是否正常工作。",
           mergeRequestId: "TEST-001",
           mergeRequestUrl: "https://example.com/merge-request/test",
+          repositoryName: "示例仓库",
+          sourceBranch: "feature/test",
+          targetBranch: "master",
+          mergeTitle: "自动合并: feature/test -> master",
         }),
       });
 
@@ -319,14 +323,14 @@ export default function FeishuConfigPage() {
         <TextField
           fullWidth
           multiline
-          rows={4}
+          rows={6}
           label="消息模板"
-          placeholder="留空使用默认模板。可用变量：{taskName}, {status}, {message}, {mergeRequestId}, {mergeRequestUrl}"
+          placeholder="留空使用默认模板。\n\n可用变量说明：\n{taskName} - 自动合并任务名称\n{repositoryName} - 仓库名称\n{sourceBranch} - 源分支名称\n{targetBranch} - 目标分支名称\n{mergeTitle} - 合并标题\n{status} - 执行状态（成功/失败）\n{message} - 详细消息\n{mergeRequestId} - 合并请求ID\n{mergeRequestUrl} - 合并请求链接"
           value={config.custom_message_template ?? ""}
           onChange={(e) =>
             handleInputChange("custom_message_template", e.target.value)
           }
-          helperText="留空将使用默认的卡片消息模板"
+          helperText="留空将使用默认的卡片消息模板。自定义模板将替换默认的交互式卡片，发送纯文本消息。"
         />
       </Paper>
 

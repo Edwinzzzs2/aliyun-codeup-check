@@ -4,6 +4,7 @@ import { POST as createMergeRequest } from '../../codeup/create-request/route.js
 import { POST as executeMerge } from '../../codeup/merge/route.js';
 import { POST as compareRequest } from '../../codeup/compare/route.js';
 import { GET as getBranchDetail } from '../../codeup/branch-detail/route.js';
+import { POST as sendFeishuNotify } from '../../feishu/notify/route.js';
 
 export async function POST(request) {
   try {
@@ -353,7 +354,7 @@ export async function executeAutoMerge(task) {
     console.log('✅ 合并操作成功，返回数据:', JSON.stringify(mergeResult, null, 2));
 
     // 构建包含提交信息的成功消息
-    const successMessage = `自动合并完全成功，合并请求ID: ${mergeRequestId}`;
+    const successMessage = `${sourceBranchInfo.commit.title} || 自动合并完全成功，合并请求ID: ${mergeRequestId}`;
     // 记录完全成功日志
     await AutoMergeDB.logExecution(
       task.name,
@@ -370,7 +371,7 @@ export async function executeAutoMerge(task) {
 
     // 发送飞书成功通知
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/feishu/notify`, {
+      const notifyRequest = new Request('internal://api/feishu/notify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -381,9 +382,14 @@ export async function executeAutoMerge(task) {
           status: 'success',
           message: successMessage,
           mergeRequestId: mergeRequestId,
-          mergeRequestUrl: mergeRequestDetailUrl
+          mergeRequestUrl: mergeRequestDetailUrl,
+          repositoryName: task.repository_name,
+          sourceBranch: task.source_branch,
+          targetBranch: task.target_branch,
+          mergeTitle: `自动合并: ${task.source_branch} -> ${task.target_branch}`
         })
       });
+      await sendFeishuNotify(notifyRequest);
     } catch (notifyError) {
       console.warn('发送飞书成功通知失败:', notifyError.message);
     }
@@ -429,7 +435,7 @@ export async function executeAutoMerge(task) {
 
     // 发送飞书失败通知
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/feishu/notify`, {
+      const notifyRequest = new Request('internal://api/feishu/notify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -440,9 +446,14 @@ export async function executeAutoMerge(task) {
           status: 'failed',
           message: failureMessage,
           mergeRequestId: null,
-          mergeRequestUrl: null
+          mergeRequestUrl: null,
+          repositoryName: task.repository_name,
+          sourceBranch: task.source_branch,
+          targetBranch: task.target_branch,
+          mergeTitle: `自动合并: ${task.source_branch} -> ${task.target_branch}`
         })
       });
+      await sendFeishuNotify(notifyRequest);
     } catch (notifyError) {
       console.warn('发送飞书失败通知失败:', notifyError.message);
     }

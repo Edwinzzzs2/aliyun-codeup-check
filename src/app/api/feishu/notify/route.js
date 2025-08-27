@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { type, taskName, status, message, mergeRequestId, mergeRequestUrl } = body;
+    const { type, taskName, status, message, mergeRequestId, mergeRequestUrl, repositoryName, sourceBranch, targetBranch, mergeTitle } = body;
 
     // 获取飞书配置
     const config = await AutoMergeDB.getFeishuConfig();
@@ -34,11 +34,15 @@ export async function POST(request) {
         .replace('{status}', status === 'success' ? '成功' : '失败')
         .replace('{message}', message || '')
         .replace('{mergeRequestId}', mergeRequestId || '')
-        .replace('{mergeRequestUrl}', mergeRequestUrl || '');
+        .replace('{mergeRequestUrl}', mergeRequestUrl || '')
+        .replace('{repositoryName}', repositoryName || '')
+        .replace('{sourceBranch}', sourceBranch || '')
+        .replace('{targetBranch}', targetBranch || '')
+        .replace('{mergeTitle}', mergeTitle || '');
     } else {
       // 使用默认模板
-      const statusText = status === 'success' ? '✅ 成功' : '❌ 失败';
-      const title = `自动合并通知 - ${statusText}`;
+      const statusText = status === 'success' ? '成功✅' : '失败❌';
+      const title = `自动合并${statusText}`;
       
       notificationMessage = {
         msg_type: 'interactive',
@@ -47,21 +51,21 @@ export async function POST(request) {
             {
               tag: 'div',
               text: {
-                content: `**任务名称:** ${taskName || '未知任务'}`,
+                content: `**任务名称:** ${repositoryName || '未知仓库'} → ${taskName || '未知任务'}`,
                 tag: 'lark_md'
               }
             },
             {
               tag: 'div',
               text: {
-                content: `**执行状态:** ${statusText}`,
+                content: `**合并分支:** ${sourceBranch || '未知'} → ${targetBranch || '未知'}`,
                 tag: 'lark_md'
               }
             },
             {
               tag: 'div',
               text: {
-                content: `**详细信息:** ${message || '无'}`,
+                content: `**合入信息:** ${message || '无'}`,
                 tag: 'lark_md'
               }
             }
@@ -76,23 +80,45 @@ export async function POST(request) {
         }
       };
 
-      // 如果有合并请求链接，添加按钮
-      if (mergeRequestUrl) {
-        notificationMessage.card.elements.push({
-          tag: 'action',
-          actions: [
-            {
-              tag: 'button',
-              text: {
-                content: '查看合并请求',
-                tag: 'plain_text'
-              },
-              type: 'primary',
-              url: mergeRequestUrl
-            }
-          ]
-        });
-      }
+      // 添加按钮区域 - 使用 column_set 多列布局
+      notificationMessage.card.elements.push({
+        tag: 'column_set',
+        flex_mode: 'stretch',
+        columns: [
+          {
+            tag: 'column',
+            width: 'weighted',
+            weight: 1,
+            elements: [
+              {
+                tag: 'button',
+                text: {
+                  content: '通知配置🔧',
+                  tag: 'plain_text'
+                },
+                type: 'default',
+                url: 'https://www.decoffee.top/automerge'
+              }
+            ]
+          },
+          ...(mergeRequestUrl ? [{
+            tag: 'column',
+            width: 'weighted',
+            weight: 1,
+            elements: [
+              {
+                tag: 'button',
+                text: {
+                  content: '查看合并🔎',
+                  tag: 'plain_text'
+                },
+                type: 'primary',
+                url: mergeRequestUrl
+              }
+            ]
+          }] : [])
+        ]
+      });
     }
 
     // 发送到飞书
