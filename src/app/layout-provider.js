@@ -43,6 +43,7 @@ import {
   Notifications,
 } from "@mui/icons-material";
 import { TokenProvider, useToken, useTokenDialog, useTokenMessage, useGlobalLoading, useRepoChange, useTokenConfigDialog } from "../contexts/TokenContext";
+import BuildTime from "../components/BuildTime";
 
 const drawerWidth = 200;
 
@@ -265,6 +266,18 @@ function LayoutContent({ children }) {
               </ListItem>
             ))}
           </List>
+          
+          {/* 构建时间显示在侧边栏底部 */}
+          <Box sx={{ 
+            position: 'absolute', 
+            bottom: 16, 
+            left: 0, 
+            right: 8,
+            display: 'flex',
+            justifyContent: 'center'
+          }}>
+            <BuildTime />
+          </Box>
         </Drawer>
 
         {/* 右侧主内容区域 */}
