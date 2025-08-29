@@ -45,6 +45,7 @@ export async function POST(request) {
       data: result
     });
   } catch (error) {
+    console.log('自动合并执行API错误:', error);
     return NextResponse.json({ 
       success: false, 
       message: '执行失败',
@@ -98,6 +99,7 @@ export async function GET(request) {
 // 执行自动合并的核心函数
 export async function executeAutoMerge(task) {
   const startTime = new Date();
+  let sourceBranchInfo = null;
   
   try {
     console.log('🎯 开始执行自动合并任务:', task.name);
@@ -207,7 +209,6 @@ export async function executeAutoMerge(task) {
     // 第二步：查询源分支信息
     console.log('🔍 开始查询源分支信息:', task.source_branch);
     
-    let sourceBranchInfo = null;
     let mergeTitle = `[自动合并] ${task.source_branch} -> ${task.target_branch}`;
     let mergeDescription = `由自动合并任务"${task.name}"创建`;
     
@@ -275,7 +276,18 @@ export async function executeAutoMerge(task) {
     if (!createResponse.ok) {
       const errorData = await createResponse.json();
       console.error('❌ 创建合并请求失败，错误详情:', JSON.stringify(errorData, null, 2));
-      throw new Error(`创建合并请求失败: ${errorData.details || errorData.error || '未知错误'}`);
+      
+      // 构建包含提交信息的失败消息
+      let failureMessage = `创建合并请求失败: ${errorData.details || errorData.error || '未知错误'}`;
+      if (sourceBranchInfo && sourceBranchInfo.commit) {
+        const commitInfo = sourceBranchInfo.commit;
+        const commitTitle = commitInfo.title || commitInfo.message || '无标题';
+        const commitAuthor = commitInfo.authorName || (commitInfo.author && commitInfo.author.name) || '未知作者';
+        failureMessage += `。最近提交信息: ${commitTitle}，提交人: ${commitAuthor}`;
+      }
+      
+      // 直接抛出错误，让外层catch统一处理日志记录
+      throw new Error(failureMessage);
     }
 
     const mergeRequestData = await createResponse.json();
@@ -419,12 +431,6 @@ export async function executeAutoMerge(task) {
     
     // 构建包含提交信息的失败消息
     let failureMessage = `自动合并执行失败: ${error.message}`;
-    if (sourceBranchInfo && sourceBranchInfo.commit) {
-      const commitInfo = sourceBranchInfo.commit;
-      const commitTitle = commitInfo.title || commitInfo.message || '无标题';
-      const commitAuthor = commitInfo.authorName || (commitInfo.author && commitInfo.author.name) || '未知作者';
-      failureMessage += `。最近提交信息: ${commitTitle}，提交人: ${commitAuthor}`;
-    }
 
     // 记录失败日志
     await AutoMergeDB.logExecution(

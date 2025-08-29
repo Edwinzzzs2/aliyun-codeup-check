@@ -319,7 +319,17 @@ export default function AutoMergePage() {
         fetchTasks();
         fetchLogs();
       } else {
-        const errorMsg = `任务执行失败: ${data.message}${data.error ? ` (${data.error})` : ''}`;
+        // 检查是否是409冲突错误，提供更具体的错误信息
+        let errorMsg = `任务执行失败: ${data.message}`;
+        if (data.error) {
+          errorMsg += ` (${data.error})`;
+        }
+        
+        // 如果响应状态是409，说明是合并请求冲突
+        if (data.message && data.message.includes('409') && data.message.includes('CONFLICT')) {
+          errorMsg = '创建合并请求失败：已存在未合并的合并请求，请先处理现有合并请求后再试';
+        }
+        
         console.error('❌', errorMsg);
         addExecutionLog(errorMsg, 'error', data);
         showMessage(errorMsg, "error");
