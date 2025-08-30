@@ -15,7 +15,7 @@ import {
   IconButton,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
-import { Search, Refresh } from "@mui/icons-material";
+import { Search, Refresh, Clear } from "@mui/icons-material";
 
 import {
   useTokenConfig,
@@ -24,6 +24,7 @@ import {
   useGlobalLoading,
 } from "../../contexts/TokenContext";
 import BranchSelector from "../../components/BranchSelector";
+import confirm from "../../components/confirm";
 
 export default function HomePage() {
   const { token, orgId } = useTokenConfig();
@@ -48,6 +49,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState({
     branches: false,
     merge: false,
+    delete: false,
   });
 
   // 监听全局代码库选择变化
@@ -235,6 +237,74 @@ export default function HomePage() {
     }
   };
 
+  // 删除分支功能
+  const deleteBranches = async () => {
+    if (!selectedRepo) {
+      showMessage("请选择代码库", "warning");
+      return;
+    }
+
+    // 使用受控选择集合
+    const selectedBranches = branches.filter((branch) =>
+      selectedBranchNames.includes(branch.name)
+    );
+
+    if (selectedBranches.length === 0) {
+      showMessage("请先选择要删除的分支", "warning");
+      return;
+    }
+
+    // 使用 confirm 函数
+    const confirmed = await confirm({
+      message: `您确定要删除选中的 ${selectedBranches.length} 个分支吗？此操作不可撤销！`,
+      confirmColor: "error",
+    });
+
+    if (confirmed) {
+      handleConfirmDelete(selectedBranches);
+    }
+  };
+
+  // 处理确认删除
+  const handleConfirmDelete = async (selectedBranches) => {
+    setLoading((prev) => ({ ...prev, delete: true }));
+
+    try {
+      const response = await fetch("/api/codeup/delete-branch", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          token: token,
+          orgId: orgId,
+          repoId: selectedRepo,
+          branchNames: selectedBranches.map((b) => b.name),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showMessage(data.result?.message || "删除成功", "success");
+        // 清空选择
+        setSelectedBranchNames([]);
+        // 刷新分支列表
+        fetchBranches(selectedRepo, page + 1, rowsPerPage, searchTerm);
+      } else {
+        showMessage(
+          `删除失败: ${data.error || data.errorMessage || "未知错误"}`,
+          "error"
+        );
+      }
+    } catch (error) {
+      console.error("删除分支失败:", error);
+      showMessage("删除分支失败: " + error.message, "error");
+    } finally {
+      setLoading((prev) => ({ ...prev, delete: false }));
+    }
+  };
+
   // handleCreateChangeRequest函数已移除，该功能已移至代码合并页面
 
   // DataGrid 列定义
@@ -301,7 +371,7 @@ export default function HomePage() {
 
         // 使用moment.js进行时间格式化
         try {
-          return moment(committedDate).format('YYYY-MM-DD HH:mm');
+          return moment(committedDate).format("YYYY-MM-DD HH:mm");
         } catch (error) {
           return committedDate;
         }
@@ -368,7 +438,9 @@ export default function HomePage() {
     >
       {/* Loading进度条 - 始终保留空间，避免页面抖动 */}
       <Box sx={{ width: "100%", height: "4px" }}>
-        {(loading.merge || loading.branches) && <LinearProgress />}
+        {(loading.merge || loading.branches || loading.delete) && (
+          <LinearProgress />
+        )}
       </Box>
       {/* 选择代码库 + 合并状态检测区域 + 搜索 */}
       <Paper
@@ -386,7 +458,13 @@ export default function HomePage() {
           backdropFilter: "blur(10px)",
         }}
       >
-        <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+        <Box
+          display="flex"
+          alignItems="center"
+          gap={2}
+          flexWrap="wrap"
+          flex={1}
+        >
           {/* 仓库选择器已移动到全局顶部，这里仅保留合并检测相关控件 */}
           <Typography
             variant="subtitle2"
@@ -407,42 +485,36 @@ export default function HomePage() {
             size="small"
             disabled={loading.merge}
           />
+        </Box>
+        <Box
+          display="flex"
+          alignItems="center"
+          gap={2}
+          flexWrap="wrap"
+          justifyContent="flex-end"
+        >
+          <Button
+            variant="contained"
+            color="error"
+            onClick={deleteBranches}
+            disabled={loading.delete || selectedBranchNames.length === 0}
+            sx={{ minWidth: 100 }}
+            startIcon={loading.delete ? <CircularProgress size={16} /> : null}
+          >
+            {loading.delete ? "删除中..." : "删除分支"}
+          </Button>
           <Button
             variant="contained"
             color="primary"
             onClick={checkMergeStatus}
             disabled={
-              loading.merge ||
-              !targetBranch ||
-              selectedBranchNames.length === 0
+              loading.merge || !targetBranch || selectedBranchNames.length === 0
             }
             sx={{ minWidth: 100 }}
             startIcon={loading.merge ? <CircularProgress size={16} /> : null}
           >
             {loading.merge ? "检测中..." : "检测合并"}
           </Button>
-        </Box>
-
-        <Box sx={{ minWidth: 240 }}>
-          <TextField
-            size="small"
-            placeholder="搜索分支名称..."
-            value={searchTerm}
-            onChange={handleSearchChange}
-            disabled={loading.branches}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  {loading.branches ? (
-                    <CircularProgress size={16} />
-                  ) : (
-                    <Search fontSize="small" />
-                  )}
-                </InputAdornment>
-              ),
-            }}
-            fullWidth
-          />
         </Box>
       </Paper>
 
@@ -468,30 +540,83 @@ export default function HomePage() {
             alignItems: "center",
             justifyContent: "space-between",
             mb: 2,
+            gap: 2,
           }}
         >
           <Typography variant="h6" sx={{ fontWeight: "bold" }}>
             分支列表
           </Typography>
-          <IconButton
-            onClick={() => {
-              if (selectedRepo) {
-                fetchBranches(selectedRepo, page + 1, rowsPerPage, searchTerm);
-              }
-            }}
-            disabled={loading.branches}
-            size="small"
+
+          <Box
             sx={{
-              color: "primary.main",
-              "&:hover": {
-                backgroundColor: "primary.light",
-                color: "white",
-              },
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              flex: 1,
+              maxWidth: 400,
             }}
-            title="刷新列表"
           >
-            <Refresh />
-          </IconButton>
+            <TextField
+              size="small"
+              placeholder="搜索分支名称..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              disabled={loading.branches}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    {loading.branches ? (
+                      <CircularProgress size={16} />
+                    ) : (
+                      <Search fontSize="small" />
+                    )}
+                  </InputAdornment>
+                ),
+                endAdornment: searchTerm && (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setSearchTerm("");
+                        if (selectedRepo) {
+                          fetchBranches(selectedRepo, 1, rowsPerPage, "");
+                        }
+                      }}
+                      disabled={loading.branches}
+                      sx={{ p: 0.5 }}
+                    >
+                      <Clear fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              fullWidth
+            />
+            <IconButton
+              onClick={() => {
+                if (selectedRepo) {
+                  fetchBranches(
+                    selectedRepo,
+                    page + 1,
+                    rowsPerPage,
+                    searchTerm
+                  );
+                }
+              }}
+              disabled={loading.branches}
+              size="small"
+              sx={{
+                color: "primary.main",
+                "&:hover": {
+                  backgroundColor: "primary.light",
+                  color: "white",
+                },
+              }}
+              title="刷新列表"
+            >
+              <Refresh />
+            </IconButton>
+          </Box>
         </Box>
 
         <Box sx={{ flex: 1, minHeight: 0 }}>
@@ -557,7 +682,7 @@ export default function HomePage() {
         </Box>
       </Paper>
 
-      {/* 全局Loading遮罩 */}
+      {/*全局Loading遮罩 */}
       <Backdrop
         sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
         open={globalLoading}
