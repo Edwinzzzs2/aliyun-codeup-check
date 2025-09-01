@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS auto_merge_tasks (
     execute_user TEXT,
     repository_id TEXT,
     repository_name TEXT,
+    feishu_config_id BIGINT,
     last_run TIMESTAMP,
     next_run TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS auto_merge_logs (
 CREATE INDEX IF NOT EXISTS idx_auto_merge_tasks_enabled ON auto_merge_tasks(enabled);
 CREATE INDEX IF NOT EXISTS idx_auto_merge_tasks_next_run ON auto_merge_tasks(next_run);
 CREATE INDEX IF NOT EXISTS idx_auto_merge_tasks_repository_id ON auto_merge_tasks(repository_id);
+CREATE INDEX IF NOT EXISTS idx_auto_merge_tasks_feishu_config_id ON auto_merge_tasks(feishu_config_id);
 CREATE INDEX IF NOT EXISTS idx_auto_merge_logs_task_name ON auto_merge_logs(task_name);
 CREATE INDEX IF NOT EXISTS idx_auto_merge_logs_executed_at ON auto_merge_logs(executed_at);
 CREATE INDEX IF NOT EXISTS idx_auto_merge_logs_status ON auto_merge_logs(status);
@@ -59,6 +61,7 @@ CREATE POLICY "Enable all operations for auto_merge_logs" ON auto_merge_logs
 -- 创建飞书通知配置表
 CREATE TABLE IF NOT EXISTS feishu_notification_config (
     id BIGSERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
     webhook_url TEXT NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT true,
     notify_on_success BOOLEAN NOT NULL DEFAULT true,
@@ -70,6 +73,7 @@ CREATE TABLE IF NOT EXISTS feishu_notification_config (
 
 -- 创建索引
 CREATE INDEX IF NOT EXISTS idx_feishu_config_enabled ON feishu_notification_config(enabled);
+CREATE INDEX IF NOT EXISTS idx_feishu_config_name ON feishu_notification_config(name);
 
 -- 启用行级安全策略
 ALTER TABLE feishu_notification_config ENABLE ROW LEVEL SECURITY;
@@ -78,8 +82,14 @@ ALTER TABLE feishu_notification_config ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable all operations for feishu_notification_config" ON feishu_notification_config
     FOR ALL USING (true) WITH CHECK (true);
 
+-- 添加外键约束
+ALTER TABLE auto_merge_tasks 
+ADD CONSTRAINT fk_auto_merge_tasks_feishu_config 
+FOREIGN KEY (feishu_config_id) REFERENCES feishu_notification_config(id) ON DELETE SET NULL;
+
 -- 插入示例数据（可选）
--- INSERT INTO auto_merge_tasks (name, source_branch, target_branch, interval_minutes, repository_id, repository_name)
--- VALUES ('示例任务', 'develop', 'master', 60, '123456', '示例仓库');
+-- INSERT INTO feishu_notification_config (name, webhook_url) VALUES ('默认配置', 'https://open.feishu.cn/open-apis/bot/v2/hook/your-webhook-url');
+-- INSERT INTO auto_merge_tasks (name, source_branch, target_branch, interval_minutes, repository_id, repository_name, feishu_config_id)
+-- VALUES ('示例任务', 'develop', 'master', 60, '123456', '示例仓库', 1);
 
 COMMIT;

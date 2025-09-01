@@ -390,6 +390,7 @@ export async function executeAutoMerge(task) {
         },
         body: JSON.stringify({
           type: 'auto_merge',
+          configId: task.feishu_config_id,
           taskName: task.name,
           status: 'success',
           message: successMessage,
@@ -448,6 +449,7 @@ export async function executeAutoMerge(task) {
         },
         body: JSON.stringify({
           type: 'auto_merge',
+          configId: task.feishu_config_id,
           taskName: task.name,
           status: 'failed',
           message: failureMessage,

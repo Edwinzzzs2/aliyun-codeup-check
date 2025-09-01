@@ -108,7 +108,11 @@ export default function AutoMergePage() {
     enabled: true,
     repository_id: "",
     repository_name: "",
+    feishu_config_id: "",
   });
+
+  // 飞书配置列表状态
+  const [feishuConfigs, setFeishuConfigs] = useState([]);
 
   // 获取仓库列表
   const fetchRepos = () => {
@@ -120,6 +124,19 @@ export default function AutoMergePage() {
     } catch (error) {
       console.error("Error reading repos cache:", error);
       return null;
+    }
+  };
+
+  // 获取飞书配置列表
+  const fetchFeishuConfigs = async () => {
+    try {
+      const response = await fetch("/api/feishu/configs");
+      const data = await response.json();
+      if (data.success) {
+        setFeishuConfigs(data.data || []);
+      }
+    } catch (error) {
+      console.error("获取飞书配置列表失败:", error);
     }
   };
 
@@ -180,6 +197,11 @@ export default function AutoMergePage() {
     }
   }, [activeTab]);
 
+  // 组件加载时获取飞书配置列表
+  useEffect(() => {
+    fetchFeishuConfigs();
+  }, []);
+
   const handleOpenDialog = (task = null) => {
     const repos = fetchRepos() || [];
     const taskRepo = task ? repos.find((r) => r.id === Number(task.repository_id)) : null;
@@ -193,6 +215,7 @@ export default function AutoMergePage() {
         enabled: task.enabled,
         repository_id: task.repository_id || selectedRepo || "",
         repository_name: taskRepo ? taskRepo.name : task.repository_name || "",
+        feishu_config_id: task.feishu_config_id || "",
       });
 
     } else {
@@ -205,6 +228,7 @@ export default function AutoMergePage() {
         enabled: true,
         repository_id: "",
         repository_name: "",
+        feishu_config_id: "",
       });
 
     }
@@ -422,6 +446,7 @@ export default function AutoMergePage() {
            onDelete={handleDelete}
            onToggleStatus={handleToggleTaskStatus}
            formatTime={formatTime}
+           feishuConfigs={feishuConfigs}
          />
       )}
 
@@ -552,6 +577,26 @@ export default function AutoMergePage() {
               required
               inputProps={{ min: 1 }}
             />
+
+            <FormControl fullWidth margin="normal">
+              <InputLabel>飞书通知配置</InputLabel>
+              <Select
+                value={formData.feishu_config_id}
+                onChange={(e) =>
+                  setFormData({ ...formData, feishu_config_id: e.target.value })
+                }
+                label="飞书通知配置"
+              >
+                <MenuItem value="">
+                  <em>不使用飞书通知</em>
+                </MenuItem>
+                {feishuConfigs.map((config) => (
+                  <MenuItem key={config.id} value={config.id}>
+                    {config.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
             <FormControlLabel
               control={

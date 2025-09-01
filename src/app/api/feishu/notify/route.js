@@ -7,6 +7,7 @@ export async function POST(request) {
     const body = await request.json();
     const {
       type,
+      configId,
       taskName,
       status,
       message,
@@ -19,11 +20,31 @@ export async function POST(request) {
     } = body;
 
     // 获取飞书配置
-    const config = await AutoMergeDB.getFeishuConfig();
-    if (!config || !config.enabled) {
+    let config;
+    if (configId) {
+      // 使用指定的配置ID
+      config = await AutoMergeDB.getFeishuConfigById(configId);
+      if (!config) {
+        return NextResponse.json({
+          success: false,
+          message: "指定的飞书配置不存在",
+        });
+      }
+    } else {
+      // 向后兼容：使用默认配置
+      config = await AutoMergeDB.getFeishuConfig();
+      if (!config) {
+        return NextResponse.json({
+          success: false,
+          message: "飞书通知未配置",
+        });
+      }
+    }
+
+    if (!config.enabled) {
       return NextResponse.json({
         success: false,
-        message: "飞书通知未启用或未配置",
+        message: "飞书通知未启用",
       });
     }
 

@@ -28,6 +28,7 @@ export default function TaskManagementTab({
   onExecute,
   onDelete,
   onToggleStatus,
+  feishuConfigs = [],
 }) {
   const { token } = useTokenConfig();
   const { selectedRepo } = useRepoChange();
@@ -106,6 +107,7 @@ export default function TaskManagementTab({
             enabled: task.enabled,
             last_run: task.last_run,
             next_run: task.next_run,
+            feishu_config_id: task.feishu_config_id,
             originalData: task,
           }))}
           columns={[
@@ -168,6 +170,34 @@ export default function TaskManagementTab({
               renderCell: (params) => (
                 <Typography variant="body2">{params.value}分钟</Typography>
               ),
+            },
+            {
+              field: "feishu_config_id",
+              headerName: "飞书通知",
+              flex: 1,
+              minWidth: 100,
+              renderCell: (params) => {
+                if (!params.value) {
+                  return (
+                    <Chip
+                      label="未配置"
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontSize: "0.75rem", color: "text.secondary" }}
+                    />
+                  );
+                }
+                const config = feishuConfigs.find(c => c.id === params.value);
+                return (
+                  <Chip
+                    label={config ? config.name : "配置已删除"}
+                    size="small"
+                    color={config ? "success" : "error"}
+                    variant="outlined"
+                    sx={{ fontSize: "0.75rem" }}
+                  />
+                );
+              },
             },
             {
               field: "enabled",
