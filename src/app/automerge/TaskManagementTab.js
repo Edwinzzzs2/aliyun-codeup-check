@@ -9,6 +9,7 @@ import {
   Chip,
   IconButton,
   CircularProgress,
+  Alert,
   Switch,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
@@ -17,6 +18,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   PlayArrow as PlayIcon,
+  Notifications,
 } from "@mui/icons-material";
 import moment from "moment";
 import { useTokenConfig, useRepoChange } from "../../contexts/TokenContext";
@@ -74,6 +76,15 @@ export default function TaskManagementTab({
         overflow: "hidden",
       }}
     >
+       <Alert 
+          severity="info" 
+          sx={{ mb: 2 }}
+          icon={<Notifications />}
+        >
+          <Typography variant="body2">
+            <strong>重要提示：</strong>当自动合并任务失败时，为避免频繁发送通知，自动任务会暂停执行。请解决问题后再手动打开任务。
+          </Typography>
+        </Alert>
       <Box
         sx={{
           display: "flex",
