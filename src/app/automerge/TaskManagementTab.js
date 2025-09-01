@@ -9,6 +9,7 @@ import {
   Chip,
   IconButton,
   CircularProgress,
+  Switch,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import {
@@ -26,6 +27,7 @@ export default function TaskManagementTab({
   onOpenDialog,
   onExecute,
   onDelete,
+  onToggleStatus,
 }) {
   const { token } = useTokenConfig();
   const { selectedRepo } = useRepoChange();
@@ -160,7 +162,7 @@ export default function TaskManagementTab({
             },
             {
               field: "interval_minutes",
-              headerName: "间隔",
+              headerName: "自动合并间隔",
               flex: 0.8,
               minWidth: 80,
               renderCell: (params) => (
@@ -169,17 +171,21 @@ export default function TaskManagementTab({
             },
             {
               field: "enabled",
-              headerName: "状态",
+              headerName: "是否开启",
               flex: 0.8,
               minWidth: 80,
-              renderCell: (params) => (
-                <Chip
-                  label={params.value ? "启用" : "禁用"}
-                  color={params.value ? "success" : "default"}
-                  size="small"
-                  sx={{ fontSize: "0.75rem" }}
-                />
-              ),
+              renderCell: (params) => {
+                const isAnyActionLoading = loading.action || executingTaskId !== null;
+                return (
+                  <Switch
+                    checked={params.value}
+                    onChange={() => onToggleStatus(params.row.id, params.value)}
+                    disabled={isAnyActionLoading}
+                    size="small"
+                    color="success"
+                  />
+                );
+              },
             },
             {
               field: "execution_time",

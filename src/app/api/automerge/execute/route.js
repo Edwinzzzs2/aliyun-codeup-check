@@ -460,8 +460,19 @@ export async function executeAutoMerge(task) {
         })
       });
       await sendFeishuNotify(notifyRequest);
+      console.log('✅ 通用错误飞书通知发送成功');
     } catch (notifyError) {
       console.warn('发送飞书失败通知失败:', notifyError.message);
+    }
+
+    // 禁用失败的任务
+    try {
+      await AutoMergeDB.updateTask(task.id, {
+        enabled: false
+      });
+      console.log('✅ 任务已自动禁用，避免重复报错');
+    } catch (disableError) {
+      console.warn('禁用任务失败:', disableError.message);
     }
 
     // 仍然更新下次执行时间

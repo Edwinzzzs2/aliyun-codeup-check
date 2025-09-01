@@ -345,6 +345,34 @@ export default function AutoMergePage() {
     }
   };
 
+  // 更新任务状态
+  const handleToggleTaskStatus = async (taskId, currentEnabled) => {
+    setLoading(prev => ({ ...prev, action: true }));
+    try {
+      const response = await fetch(`/api/automerge/tasks?id=${taskId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ enabled: !currentEnabled }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showMessage(`任务已${!currentEnabled ? '启用' : '禁用'}`, "success");
+        fetchTasks();
+      } else {
+        showMessage(data.message, "error");
+      }
+    } catch (error) {
+      console.error("更新任务状态失败:", error);
+      showMessage("更新任务状态失败", "error");
+    } finally {
+      setLoading(prev => ({ ...prev, action: false }));
+    }
+  };
+
 
 
   return (
@@ -392,6 +420,7 @@ export default function AutoMergePage() {
            onOpenDialog={handleOpenDialog}
            onExecute={handleExecute}
            onDelete={handleDelete}
+           onToggleStatus={handleToggleTaskStatus}
            formatTime={formatTime}
          />
       )}

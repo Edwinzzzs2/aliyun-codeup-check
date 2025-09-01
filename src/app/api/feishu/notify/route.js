@@ -80,7 +80,7 @@ export async function POST(request) {
             {
               tag: "div",
               text: {
-                content: `**合并信息:** ${message || "无"}`,
+                content: `**合并信息:** ${message ? (message.length > 39 ? message.substring(0, 39) + '...' : message) : "无"}`,
                 tag: "lark_md",
               },
             },
