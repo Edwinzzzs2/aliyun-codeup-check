@@ -83,7 +83,6 @@ export default function HomePage() {
     setLoading((prev) => ({ ...prev, branches: true }));
     try {
       const params = new URLSearchParams({
-        token,
         orgId,
         repoId,
         page: pageNum.toString(),
@@ -92,7 +91,9 @@ export default function HomePage() {
       });
       if (search) params.append("search", search);
 
-      const res = await fetch(`/api/codeup/branches?${params.toString()}`);
+      const res = await fetch(`/api/codeup/branches?${params.toString()}`, {
+        headers: { "x-yunxiao-token": token },
+      });
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -166,7 +167,6 @@ export default function HomePage() {
     try {
       // 组装批量请求payload，避免逐个分支调用接口
       const payload = {
-        token,
         orgId,
         repoId: selectedRepo,
         target: targetBranch.name,
@@ -178,7 +178,10 @@ export default function HomePage() {
 
       const res = await fetch("/api/codeup/merge-status", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-yunxiao-token": token,
+        },
         body: JSON.stringify(payload),
       });
 
@@ -286,9 +289,9 @@ export default function HomePage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-yunxiao-token": token,
         },
         body: JSON.stringify({
-          token: token,
           orgId: orgId,
           repoId: selectedRepo,
           branchNames: selectedBranches.map((b) => b.name),

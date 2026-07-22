@@ -1,4 +1,4 @@
-import { validateRequiredParams, makeCodeupApiRequest, extractSearchParams } from '../utils.js';
+import { validateRequiredParams, makeCodeupApiRequest, extractSearchParams, getRequestToken } from '../utils.js';
 
 // 查询合并请求列表 - GET
 export async function GET(request) {
@@ -55,7 +55,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const {
-      token,
+      token: bodyToken,
       orgId,
       repoId,
       sourceBranch,
@@ -68,6 +68,7 @@ export async function POST(request) {
       sourceProjectId,
       targetProjectId,
     } = body || {};
+    const token = getRequestToken(request, bodyToken);
 
     // 校验必填参数
     const requiredError = validateRequiredParams(

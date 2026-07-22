@@ -137,7 +137,6 @@ export async function executeAutoMerge(task) {
     
     try {
       const comparePayload = {
-        token,
         orgId,
         repoId: task.repository_id,
         from: task.target_branch,
@@ -150,7 +149,8 @@ export async function executeAutoMerge(task) {
       const compareRequestObj = new Request('internal://api/codeup/compare', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'x-yunxiao-token': token
         },
         body: JSON.stringify(comparePayload)
       });
@@ -214,11 +214,12 @@ export async function executeAutoMerge(task) {
     
     try {
       // 创建分支详情查询请求
-      const branchDetailUrl = `/api/codeup/branch-detail?token=${encodeURIComponent(token)}&orgId=${encodeURIComponent(orgId)}&repoId=${encodeURIComponent(task.repository_id)}&branchName=${encodeURIComponent(task.source_branch)}`;
+      const branchDetailUrl = `/api/codeup/branch-detail?orgId=${encodeURIComponent(orgId)}&repoId=${encodeURIComponent(task.repository_id)}&branchName=${encodeURIComponent(task.source_branch)}`;
       const branchDetailRequest = new Request(`internal:${branchDetailUrl}`, {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'x-yunxiao-token': token
         }
       });
       
@@ -248,7 +249,6 @@ export async function executeAutoMerge(task) {
 
     // 第三步：创建合并请求
     const createMergeRequestPayload = {
-      token,
       orgId,
       repoId: task.repository_id,
       sourceBranch: task.source_branch,
@@ -264,7 +264,8 @@ export async function executeAutoMerge(task) {
     const createRequest = new Request('internal://api/codeup/create-request', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-yunxiao-token': token
       },
       body: JSON.stringify(createMergeRequestPayload)
     });

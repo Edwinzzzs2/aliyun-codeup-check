@@ -1,4 +1,4 @@
-import { validateRequiredParams, makeCodeupApiRequest, extractSearchParams } from '../utils.js';
+import { validateRequiredParams, makeCodeupApiRequest, extractSearchParams, getRequestToken } from '../utils.js';
 import { AutoMergeDB } from '../../../../../lib/database.supabase';
 import { getProtectedBranchNames } from '../../../../constants/branches.js';
 
@@ -118,7 +118,8 @@ async function logBatchDelete(repositoryId, branchNames, batchResults, clientInf
 
 /**
  * GET方法 - 删除单个分支
- * GET /api/codeup/delete-branch?token=xxx&orgId=xxx&repoId=xxx&branchName=xxx
+ * Token 通过 x-yunxiao-token 请求头传递。
+ * GET /api/codeup/delete-branch?orgId=xxx&repoId=xxx&branchName=xxx
  */
 export async function GET(request) {
   // 提取查询参数
@@ -126,7 +127,12 @@ export async function GET(request) {
     'token', 'orgId', 'repoId', 'branchName'
   ]);
   
-  console.log(`[删除分支API] GET请求参数:`, JSON.stringify(params, null, 2));
+  console.log(`[删除分支API] GET请求参数:`, JSON.stringify({
+    orgId: params.orgId,
+    repoId: params.repoId,
+    branchName: params.branchName,
+    hasToken: Boolean(params.token),
+  }, null, 2));
   
   // 校验必填参数
   const requiredError = validateRequiredParams(
@@ -167,15 +173,22 @@ export async function GET(request) {
  * POST /api/codeup/delete-branch
  * 
  * 请求体格式:
- * 单个删除: { "token": "xxx", "orgId": "xxx", "repoId": "123", "branchName": "feature-branch" }
- * 批量删除: { "token": "xxx", "orgId": "xxx", "repoId": "123", "branchNames": ["branch1", "branch2", "branch3"] }
+ * Token 通过 x-yunxiao-token 请求头传递。
+ * 单个删除: { "orgId": "xxx", "repoId": "123", "branchName": "feature-branch" }
+ * 批量删除: { "orgId": "xxx", "repoId": "123", "branchNames": ["branch1", "branch2", "branch3"] }
  */
 export async function POST(request) {
   try {
     const body = await request.json();
-    console.log(`[删除分支API] 接收到请求:`, JSON.stringify(body, null, 2));
-    
-    const { token, orgId, repoId, branchName, branchNames } = body;
+    const { token: bodyToken, orgId, repoId, branchName, branchNames } = body;
+    const token = getRequestToken(request, bodyToken);
+    console.log(`[删除分支API] 接收到请求:`, JSON.stringify({
+      orgId,
+      repoId,
+      branchName,
+      branchNames,
+      hasToken: Boolean(token),
+    }, null, 2));
     const clientInfo = getRequestClientInfo(request);
 
     // 验证必需参数

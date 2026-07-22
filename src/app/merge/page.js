@@ -88,7 +88,6 @@ export default function MergeRequest() {
       setLoadingState((prev) => ({ ...prev, mrList: true }));
       try {
         const params = new URLSearchParams({
-          token,
           orgId,
           repoId: selectedRepo,
           page: page.toString(),
@@ -96,7 +95,8 @@ export default function MergeRequest() {
         });
 
         const response = await fetch(
-          `/api/codeup/create-request?${params.toString()}`
+          `/api/codeup/create-request?${params.toString()}`,
+          { headers: { "x-yunxiao-token": token } }
         );
 
         if (!response.ok) {
@@ -159,7 +159,6 @@ export default function MergeRequest() {
 
     try {
       const payload = {
-        token,
         orgId,
         repoId: selectedRepo,
         sourceBranch: branchState.sourceBranch.name,
@@ -174,7 +173,10 @@ export default function MergeRequest() {
 
       const res = await fetch("/api/codeup/create-request", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-yunxiao-token": token,
+        },
         body: JSON.stringify(payload),
       });
 

@@ -58,9 +58,9 @@ const CompareDialog = ({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-yunxiao-token": token,
         },
         body: JSON.stringify({
-          token,
           orgId,
           repoId,
           from: targetBranch?.name || targetBranch,

@@ -1,4 +1,4 @@
-import { validateRequiredParams, makeCodeupApiRequest, extractSearchParams } from '../utils.js';
+import { validateRequiredParams, makeCodeupApiRequest, extractSearchParams, getRequestToken } from '../utils.js';
 
 /**
  * 代码比较API - 基于阿里云GetCompare接口
@@ -59,7 +59,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const {
-      token,
+      token: bodyToken,
       orgId,
       repoId,
       from,
@@ -68,6 +68,7 @@ export async function POST(request) {
       targetType,
       straight = 'false'
     } = body || {};
+    const token = getRequestToken(request, bodyToken);
 
     // 校验必填参数
     const requiredError = validateRequiredParams(

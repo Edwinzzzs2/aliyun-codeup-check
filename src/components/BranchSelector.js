@@ -50,14 +50,15 @@ export default function BranchSelector({
 
       setLoading(true);
       const params = new URLSearchParams({
-        token,
         orgId,
         repoId,
         search: searchQuery,
       });
 
       try {
-        const response = await fetch(`/api/codeup/branches?${params.toString()}`);
+        const response = await fetch(`/api/codeup/branches?${params.toString()}`, {
+          headers: { "x-yunxiao-token": token },
+        });
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }

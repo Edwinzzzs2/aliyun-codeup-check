@@ -1,17 +1,20 @@
+import { getRequestToken } from '../utils.js';
+
 // 批量检测合并状态 - POST方法
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { token, orgId, repoId, target, branches } = body;
+    const { token: bodyToken, orgId, repoId, target, branches } = body;
+    const token = getRequestToken(request, bodyToken);
 
     // 验证必填参数
     if (!token || !orgId || !repoId || !target) {
       return new Response(
         JSON.stringify({ 
-          error: '缺少必填参数: token, orgId, repoId, target',
+          error: '缺少必填参数: x-yunxiao-token 请求头、orgId、repoId、target',
           errorDescription: '缺少必填参数',
-          errorMessage: '请提供token、orgId、repoId和target参数',
-          details: '缺少必填参数: token, orgId, repoId, target'
+          errorMessage: '请提供x-yunxiao-token请求头、orgId、repoId和target参数',
+          details: '缺少必填参数: x-yunxiao-token 请求头、orgId、repoId、target'
         }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );

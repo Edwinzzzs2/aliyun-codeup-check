@@ -133,9 +133,10 @@ function LayoutContent({ children }) {
 
     setLoading((prev) => ({ ...prev, repos: true }));
     try {
-      const res = await fetch(
-        `/api/codeup/repositories?token=${token}&orgId=${orgId}`
-      );
+      const params = new URLSearchParams({ orgId });
+      const res = await fetch(`/api/codeup/repositories?${params.toString()}`, {
+        headers: { "x-yunxiao-token": token },
+      });
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);

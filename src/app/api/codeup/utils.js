@@ -27,6 +27,13 @@ export function validateRequiredParams(params, requiredFields) {
 }
 
 /**
+ * 优先从请求头读取 Token，并保留旧调用的回退值以兼容服务端内部请求。
+ */
+export function getRequestToken(request, fallbackToken = null) {
+  return request.headers.get("x-yunxiao-token") || fallbackToken;
+}
+
+/**
  * 构建查询参数字符串
  * @param {Object} params - 参数对象
  * @param {string[]} allowedFields - 允许的字段数组
@@ -86,6 +93,24 @@ function createTraceId() {
   return typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getErrorCauseDetails(error) {
+  const cause = error?.cause;
+  const nestedErrors = Array.isArray(cause?.errors)
+    ? cause.errors.slice(0, 5).map((nestedError) => ({
+        name: nestedError?.name || null,
+        code: nestedError?.code || nestedError?.errno || null,
+        message: sanitizeLogText(nestedError?.message),
+      }))
+    : [];
+
+  return {
+    causeName: cause?.name || null,
+    causeCode: cause?.code || cause?.errno || null,
+    causeMessage: sanitizeLogText(cause?.message),
+    causeErrors: nestedErrors,
+  };
 }
 
 /**
@@ -223,6 +248,7 @@ export async function makeCodeupApiRequest({
       contentType: upstreamContentType,
       responseBodyPreview,
       error: sanitizeLogText(error?.message),
+      ...getErrorCauseDetails(error),
     });
 
     return new Response(
@@ -247,9 +273,12 @@ export async function makeCodeupApiRequest({
 export function extractSearchParams(request, paramNames) {
   const { searchParams } = new URL(request.url);
   const params = {};
+  const headerToken = getRequestToken(request);
   
   paramNames.forEach(name => {
-    params[name] = searchParams.get(name);
+    params[name] = name === "token"
+      ? headerToken || searchParams.get(name)
+      : searchParams.get(name);
   });
   
   return params;
