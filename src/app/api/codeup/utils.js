@@ -60,6 +60,34 @@ export function extractPaginationFromHeaders(response) {
   };
 }
 
+const MAX_ERROR_BODY_LOG_LENGTH = 1000;
+
+function sanitizeLogText(value) {
+  return String(value || "")
+    .replace(/pt-[A-Za-z0-9_-]+/g, "[REDACTED_TOKEN]")
+    .slice(0, MAX_ERROR_BODY_LOG_LENGTH);
+}
+
+function sanitizeUrlForLog(value) {
+  try {
+    const safeUrl = new URL(value);
+    for (const name of safeUrl.searchParams.keys()) {
+      if (/token|authorization/i.test(name)) {
+        safeUrl.searchParams.set(name, "[REDACTED]");
+      }
+    }
+    return safeUrl.toString();
+  } catch {
+    return sanitizeLogText(value);
+  }
+}
+
+function createTraceId() {
+  return typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 /**
  * 阿里云 Codeup API 通用请求函数
  * @param {Object} config - 配置对象
@@ -77,10 +105,29 @@ export async function makeCodeupApiRequest({
   allowedQueryFields = [],
   includePagination = false
 }) {
+  const traceId = createTraceId();
+  const startedAt = Date.now();
+  let fullUrl = url;
+  let logUrl = sanitizeUrlForLog(url);
+  let upstreamStatus = null;
+  let upstreamRequestId = null;
+  let upstreamContentType = null;
+  let responseBodyPreview = null;
+
   try {
     // 构建完整URL
     const queryString = buildQueryString(queryParams, allowedQueryFields);
-    const fullUrl = queryString ? `${url}?${queryString}` : url;
+    fullUrl = queryString ? `${url}?${queryString}` : url;
+    logUrl = sanitizeUrlForLog(fullUrl);
+
+    console.info("[CodeUp API] request", {
+      traceId,
+      url: logUrl,
+      page: queryParams.page || null,
+      perPage: queryParams.perPage || null,
+      sort: queryParams.sort || null,
+      hasSearch: Boolean(queryParams.search),
+    });
 
     // 发起请求
     const response = await fetch(fullUrl, {
@@ -90,10 +137,42 @@ export async function makeCodeupApiRequest({
       },
     });
 
-    const data = await response.json();
+    upstreamStatus = response.status;
+    upstreamRequestId = response.headers.get("x-request-id");
+    upstreamContentType = response.headers.get("content-type");
+
+    const responseText = await response.text();
+    responseBodyPreview = sanitizeLogText(responseText);
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("[CodeUp API] invalid JSON response", {
+        traceId,
+        url: logUrl,
+        status: upstreamStatus,
+        durationMs: Date.now() - startedAt,
+        upstreamRequestId,
+        contentType: upstreamContentType,
+        responseBodyPreview,
+        error: parseError.message,
+      });
+      throw new Error(`上游响应不是有效 JSON: ${parseError.message}`);
+    }
 
     // 如果请求失败，返回标准化的错误响应
     if (!response.ok) {
+      console.error("[CodeUp API] upstream error", {
+        traceId,
+        url: logUrl,
+        status: upstreamStatus,
+        durationMs: Date.now() - startedAt,
+        upstreamRequestId,
+        contentType: upstreamContentType,
+        responseBodyPreview,
+      });
+
       return new Response(
         JSON.stringify({
           error: 'API请求失败',
@@ -107,6 +186,14 @@ export async function makeCodeupApiRequest({
         }
       );
     }
+
+    console.info("[CodeUp API] success", {
+      traceId,
+      url: logUrl,
+      status: upstreamStatus,
+      durationMs: Date.now() - startedAt,
+      upstreamRequestId,
+    });
 
     // 根据配置决定是否包含分页信息
     let responseData;
@@ -127,6 +214,17 @@ export async function makeCodeupApiRequest({
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
+    console.error("[CodeUp API] request exception", {
+      traceId,
+      url: logUrl,
+      status: upstreamStatus,
+      durationMs: Date.now() - startedAt,
+      upstreamRequestId,
+      contentType: upstreamContentType,
+      responseBodyPreview,
+      error: sanitizeLogText(error?.message),
+    });
+
     return new Response(
       JSON.stringify({ 
         error: "网络请求失败", 
