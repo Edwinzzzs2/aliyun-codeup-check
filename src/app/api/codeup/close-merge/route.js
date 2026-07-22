@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { fetchCodeup } from '../utils.js';
 
 // 关闭合并请求API
 export async function POST(request) {
@@ -39,7 +40,7 @@ export async function POST(request) {
     const apiUrl = `https://openapi-rdc.aliyuncs.com/oapi/v1/codeup/organizations/${organizationId}/repositories/${repositoryId}/changeRequests/${localId}/close`;
     
     // 调用阿里云CodeUp API
-    const response = await fetch(apiUrl, {
+    const response = await fetchCodeup(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

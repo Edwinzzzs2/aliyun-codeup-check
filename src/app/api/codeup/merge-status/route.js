@@ -1,4 +1,4 @@
-import { getRequestToken } from '../utils.js';
+import { fetchCodeup, getRequestToken } from '../utils.js';
 
 // 批量检测合并状态 - POST方法
 export async function POST(request) {
@@ -62,7 +62,7 @@ export async function POST(request) {
     const perPage = 100;
 
     while (page <= 20) { // 最多 20 页
-      const res = await fetch(
+      const res = await fetchCodeup(
         `https://openapi-rdc.aliyuncs.com/oapi/v1/codeup/organizations/${orgId}/repositories/${repoId}/commits?refName=${encodeURIComponent(target)}&since=${encodeURIComponent(since)}&page=${page}&perPage=${perPage}`,
         {
           headers: {

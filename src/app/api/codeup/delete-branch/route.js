@@ -1,4 +1,4 @@
-import { validateRequiredParams, makeCodeupApiRequest, extractSearchParams, getRequestToken } from '../utils.js';
+import { validateRequiredParams, makeCodeupApiRequest, extractSearchParams, getRequestToken, fetchCodeup } from '../utils.js';
 import { AutoMergeDB } from '../../../../../lib/database.supabase';
 import { getProtectedBranchNames } from '../../../../constants/branches.js';
 
@@ -34,7 +34,7 @@ async function deleteSingleBranch(token, orgId, repositoryId, branchName) {
   
   try {
     // 使用统一的API请求函数
-    const response = await fetch(url, {
+    const response = await fetchCodeup(url, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

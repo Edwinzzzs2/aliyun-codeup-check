@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { fetchCodeup } from '../utils.js';
 
 // 合并请求API
 export async function POST(request) {
@@ -46,7 +47,7 @@ export async function POST(request) {
     };
     
     // 调用阿里云CodeUp API
-    const response = await fetch(apiUrl, {
+    const response = await fetchCodeup(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

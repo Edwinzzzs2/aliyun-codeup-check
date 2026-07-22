@@ -1,4 +1,4 @@
-import { validateRequiredParams, makeCodeupApiRequest, extractSearchParams, getRequestToken } from '../utils.js';
+import { validateRequiredParams, makeCodeupApiRequest, extractSearchParams, getRequestToken, fetchCodeup } from '../utils.js';
 
 // 查询合并请求列表 - GET
 export async function GET(request) {
@@ -97,7 +97,7 @@ export async function POST(request) {
     );
 
     // 使用fetch进行POST请求（公共函数暂不支持POST请求体）
-    const res = await fetch(url, {
+    const res = await fetchCodeup(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

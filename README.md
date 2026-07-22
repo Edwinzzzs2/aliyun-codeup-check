@@ -131,6 +131,10 @@ CODEUP_TOKEN=你的token
 # 代码组织id
 CODEUP_ORG_ID=你的组织id
 
+# 可选：Codeup 服务端请求代理，不配置则保持直连
+CODEUP_PROXY_URL=http://你的阿里云公网IP:3000
+CODEUP_PROXY_TOKEN=与代理服务器PROXY_AUTH_TOKEN相同的密码
+
 # Supabase数据库连接设置
 NEXT_PUBLIC_SUPABASE_URL=你的数据库url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=你的数据库tokenKey
@@ -142,6 +146,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=你的数据库tokenKey
 2. **CODEUP_ORG_ID**: 阿里云 Codeup 的组织ID
 3. **NEXT_PUBLIC_SUPABASE_URL**: Supabase 项目URL
 4. **NEXT_PUBLIC_SUPABASE_ANON_KEY**: Supabase 匿名访问密钥
+5. **CODEUP_PROXY_URL**: 可选的 Codeup 请求代理地址，例如 `http://1.2.3.4:3000`
+6. **CODEUP_PROXY_TOKEN**: 代理鉴权密码，必须与代理服务器的 `PROXY_AUTH_TOKEN` 完全一致
+
+代理变量仅供服务端使用，不要添加 `NEXT_PUBLIC_` 前缀。Vercel 修改环境变量后需要重新部署。
 
 ## 📖 功能使用说明
 

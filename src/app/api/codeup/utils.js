@@ -34,6 +34,30 @@ export function getRequestToken(request, fallbackToken = null) {
 }
 
 /**
+ * Sends a Codeup request directly or through the configured authenticated proxy.
+ * These variables are server-only and must not use the NEXT_PUBLIC_ prefix.
+ */
+export async function fetchCodeup(url, options = {}) {
+  const proxyUrl = process.env.CODEUP_PROXY_URL?.trim().replace(/\/+$/, "");
+  if (!proxyUrl) {
+    return fetch(url, options);
+  }
+
+  const proxyToken = process.env.CODEUP_PROXY_TOKEN?.trim();
+  if (!proxyToken) {
+    throw new Error("CODEUP_PROXY_TOKEN is required when CODEUP_PROXY_URL is configured");
+  }
+
+  const headers = new Headers(options.headers);
+  headers.set("X-Proxy-Token", proxyToken);
+
+  return fetch(`${proxyUrl}/${url}`, {
+    ...options,
+    headers,
+  });
+}
+
+/**
  * 构建查询参数字符串
  * @param {Object} params - 参数对象
  * @param {string[]} allowedFields - 允许的字段数组
@@ -155,7 +179,7 @@ export async function makeCodeupApiRequest({
     });
 
     // 发起请求
-    const response = await fetch(fullUrl, {
+    const response = await fetchCodeup(fullUrl, {
       headers: {
         "Content-Type": "application/json",
         "x-yunxiao-token": token,
