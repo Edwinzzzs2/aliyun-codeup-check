@@ -285,7 +285,7 @@
 
 "@mui/system@^5.15.14 || ^6.0.0 || ^7.0.0", "@mui/system@^7.3.1":
   version "7.3.1"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/@mui/system/-/system-7.3.1.tgz"
+  resolved "https://registry.npmjs.org/@mui/system/-/system-7.3.1.tgz"
   integrity sha512-mIidecvcNVpNJMdPDmCeoSL5zshKBbYPcphjuh6ZMjhybhqhZ4mX6k9zmIWh6XOXcqRQMg5KrcjnO0QstrNj3w==
   dependencies:
     "@babel/runtime" "^7.28.2"
@@ -354,35 +354,35 @@
 
 "@supabase/auth-js@2.71.1":
   version "2.71.1"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/@supabase/auth-js/-/auth-js-2.71.1.tgz"
+  resolved "https://registry.npmjs.org/@supabase/auth-js/-/auth-js-2.71.1.tgz"
   integrity sha512-mMIQHBRc+SKpZFRB2qtupuzulaUhFYupNyxqDj5Jp/LyPvcWvjaJzZzObv6URtL/O6lPxkanASnotGtNpS3H2Q==
   dependencies:
     "@supabase/node-fetch" "^2.6.14"
 
 "@supabase/functions-js@2.4.5":
   version "2.4.5"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/@supabase/functions-js/-/functions-js-2.4.5.tgz"
+  resolved "https://registry.npmjs.org/@supabase/functions-js/-/functions-js-2.4.5.tgz"
   integrity sha512-v5GSqb9zbosquTo6gBwIiq7W9eQ7rE5QazsK/ezNiQXdCbY+bH8D9qEaBIkhVvX4ZRW5rP03gEfw5yw9tiq4EQ==
   dependencies:
     "@supabase/node-fetch" "^2.6.14"
 
 "@supabase/node-fetch@^2.6.13", "@supabase/node-fetch@^2.6.14", "@supabase/node-fetch@2.6.15":
   version "2.6.15"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/@supabase/node-fetch/-/node-fetch-2.6.15.tgz"
+  resolved "https://registry.npmjs.org/@supabase/node-fetch/-/node-fetch-2.6.15.tgz"
   integrity sha512-1ibVeYUacxWYi9i0cf5efil6adJ9WRyZBLivgjs+AUpewx1F3xPi7gLgaASI2SmIQxPoCEjAsLAzKPgMJVgOUQ==
   dependencies:
     whatwg-url "^5.0.0"
 
 "@supabase/postgrest-js@1.21.3":
   version "1.21.3"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/@supabase/postgrest-js/-/postgrest-js-1.21.3.tgz"
+  resolved "https://registry.npmjs.org/@supabase/postgrest-js/-/postgrest-js-1.21.3.tgz"
   integrity sha512-rg3DmmZQKEVCreXq6Am29hMVe1CzemXyIWVYyyua69y6XubfP+DzGfLxME/1uvdgwqdoaPbtjBDpEBhqxq1ZwA==
   dependencies:
     "@supabase/node-fetch" "^2.6.14"
 
 "@supabase/realtime-js@2.15.1":
   version "2.15.1"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/@supabase/realtime-js/-/realtime-js-2.15.1.tgz"
+  resolved "https://registry.npmjs.org/@supabase/realtime-js/-/realtime-js-2.15.1.tgz"
   integrity sha512-edRFa2IrQw50kNntvUyS38hsL7t2d/psah6om6aNTLLcWem0R6bOUq7sk7DsGeSlNfuwEwWn57FdYSva6VddYw==
   dependencies:
     "@supabase/node-fetch" "^2.6.13"
@@ -392,14 +392,14 @@
 
 "@supabase/storage-js@^2.10.4":
   version "2.11.0"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/@supabase/storage-js/-/storage-js-2.11.0.tgz"
+  resolved "https://registry.npmjs.org/@supabase/storage-js/-/storage-js-2.11.0.tgz"
   integrity sha512-Y+kx/wDgd4oasAgoAq0bsbQojwQ+ejIif8uczZ9qufRHWFLMU5cODT+ApHsSrDufqUcVKt+eyxtOXSkeh2v9ww==
   dependencies:
     "@supabase/node-fetch" "^2.6.14"
 
 "@supabase/supabase-js@^2.56.0":
   version "2.56.0"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/@supabase/supabase-js/-/supabase-js-2.56.0.tgz"
+  resolved "https://registry.npmjs.org/@supabase/supabase-js/-/supabase-js-2.56.0.tgz"
   integrity sha512-XqwhHSyVnkjdliPN61CmXsmFGnFHTX2WDdwjG3Ukvdzuu3Trix+dXupYOQ3BueIyYp7B6t0yYpdQtJP2hIInyg==
   dependencies:
     "@supabase/auth-js" "2.71.1"
@@ -418,7 +418,7 @@
 
 "@types/node@*":
   version "24.3.0"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/@types/node/-/node-24.3.0.tgz"
+  resolved "https://registry.npmjs.org/@types/node/-/node-24.3.0.tgz"
   integrity sha512-aPTXCrfwnDLj4VvXrm+UUCQjNEvJgNA8s5F1cvwQU+3KNltTOkBm1j30uNLyqqPNe7gE3KFzImYoZEfLhp4Yow==
   dependencies:
     undici-types "~7.10.0"
@@ -430,7 +430,7 @@
 
 "@types/phoenix@^1.6.6":
   version "1.6.6"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/@types/phoenix/-/phoenix-1.6.6.tgz"
+  resolved "https://registry.npmjs.org/@types/phoenix/-/phoenix-1.6.6.tgz"
   integrity sha512-PIzZZlEppgrpoT2QgbnDU+MMzuR6BbCjllj0bM70lWoejMeNJAxCchxnv7J3XFkI8MpygtRpzXrIlmWUBclP5A==
 
 "@types/prop-types@^15.7.15":
@@ -445,14 +445,14 @@
 
 "@types/react@*", "@types/react@^17.0.0 || ^18.0.0 || ^19.0.0":
   version "19.1.11"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/@types/react/-/react-19.1.11.tgz"
+  resolved "https://registry.npmjs.org/@types/react/-/react-19.1.11.tgz"
   integrity sha512-lr3jdBw/BGj49Eps7EvqlUaoeA0xpj3pc0RoJkHpYaCHkVK7i28dKyImLQb3JVlqs3aYSXf7qYuWOW/fgZnTXQ==
   dependencies:
     csstype "^3.0.2"
 
 "@types/ws@^8.18.1":
   version "8.18.1"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/@types/ws/-/ws-8.18.1.tgz"
+  resolved "https://registry.npmjs.org/@types/ws/-/ws-8.18.1.tgz"
   integrity sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==
   dependencies:
     "@types/node" "*"
@@ -681,7 +681,7 @@ nanoid@^3.3.6:
 
 node-cron@^4.2.1:
   version "4.2.1"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/node-cron/-/node-cron-4.2.1.tgz"
+  resolved "https://registry.npmjs.org/node-cron/-/node-cron-4.2.1.tgz"
   integrity sha512-lgimEHPE/QDgFlywTd8yTR61ptugX3Qer29efeyWw2rv259HtGBNn1vZVmp8lB9uo9wC0t/AT4iGqXxia+CJFg==
 
 object-assign@^4.1.1:
@@ -868,7 +868,7 @@ supports-preserve-symlinks-flag@^1.0.0:
 
 tr46@~0.0.3:
   version "0.0.3"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/tr46/-/tr46-0.0.3.tgz"
+  resolved "https://registry.npmjs.org/tr46/-/tr46-0.0.3.tgz"
   integrity sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==
 
 tslib@^2.8.0:
@@ -878,7 +878,7 @@ tslib@^2.8.0:
 
 undici-types@~7.10.0:
   version "7.10.0"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/undici-types/-/undici-types-7.10.0.tgz"
+  resolved "https://registry.npmjs.org/undici-types/-/undici-types-7.10.0.tgz"
   integrity sha512-t5Fy/nfn+14LuOc2KNYg75vZqClpAiqscVvMygNnlsHBFpSXdJaYtXMcdNLpl/Qvc3P2cB3s6lOV51nqsFq4ag==
 
 use-sync-external-store@^1.0.0:
@@ -888,12 +888,12 @@ use-sync-external-store@^1.0.0:
 
 webidl-conversions@^3.0.0:
   version "3.0.1"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/webidl-conversions/-/webidl-conversions-3.0.1.tgz"
+  resolved "https://registry.npmjs.org/webidl-conversions/-/webidl-conversions-3.0.1.tgz"
   integrity sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==
 
 whatwg-url@^5.0.0:
   version "5.0.0"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/whatwg-url/-/whatwg-url-5.0.0.tgz"
+  resolved "https://registry.npmjs.org/whatwg-url/-/whatwg-url-5.0.0.tgz"
   integrity sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==
   dependencies:
     tr46 "~0.0.3"
@@ -901,7 +901,7 @@ whatwg-url@^5.0.0:
 
 ws@^8.18.2:
   version "8.18.3"
-  resolved "https://packages.aliyun.com/5f9a23913a5188f27f3f344b/npm/npm-registry/ws/-/ws-8.18.3.tgz"
+  resolved "https://registry.npmjs.org/ws/-/ws-8.18.3.tgz"
   integrity sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg==
 
 yaml@^1.10.0:
