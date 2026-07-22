@@ -1,4 +1,5 @@
 import { validateRequiredParams, makeCodeupApiRequest, extractSearchParams } from '../utils.js';
+import { AutoMergeDB } from '../../../../../lib/database.supabase';
 
 /**
  * 删除单个分支
@@ -50,6 +51,52 @@ async function deleteSingleBranch(token, orgId, repositoryId, branchName) {
       message: `删除异常: ${error.message}`
     };
   }
+}
+
+/**
+ * Vercel 会通过转发请求头传递访问者 IP；User-Agent 用于区分共享出口下的不同客户端。
+ */
+function getRequestClientInfo(request) {
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  const ip = forwardedFor?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || '未知 IP';
+
+  return {
+    ip,
+    userAgent: request.headers.get('user-agent') || '未知客户端',
+  };
+}
+
+/**
+ * 批量删除全部结束后记录一条汇总日志，避免每个分支各写一条造成日志刷屏。
+ */
+async function logBatchDelete(repositoryId, branchNames, batchResults, clientInfo) {
+  const succeeded = batchResults.filter((item) => item.success);
+  const failed = batchResults.filter((item) => !item.success);
+  const succeededText = succeeded.map((item) => item.branchName).join('、') || '无';
+  const failedText = failed
+    .map((item) => `${item.branchName}（${item.message}）`)
+    .join('、') || '无';
+
+  await AutoMergeDB.logDetailedExecution({
+    taskName: `删除分支（仓库 ${repositoryId}）`,
+    status: failed.length === 0 ? 'success' : 'failed',
+    message: `批量删除分支完成：成功 ${succeeded.length} 个 [${succeededText}]，失败 ${failed.length} 个 [${failedText}]`,
+    requestData: {
+      repositoryId,
+      branchNames,
+      clientInfo,
+    },
+    responseData: {
+      total: branchNames.length,
+      successCount: succeeded.length,
+      failureCount: failed.length,
+      results: batchResults,
+    },
+    errorDetails: failed.length > 0 ? failedText : null,
+    executionType: 'branch_delete',
+  });
 }
 
 /**
@@ -109,6 +156,7 @@ export async function POST(request) {
     console.log(`[删除分支API] 接收到请求:`, JSON.stringify(body, null, 2));
     
     const { token, orgId, repoId, branchName, branchNames } = body;
+    const clientInfo = getRequestClientInfo(request);
 
     // 验证必需参数
     const requiredError = validateRequiredParams(
@@ -146,23 +194,12 @@ export async function POST(request) {
       }
     } else if (branchNames && Array.isArray(branchNames) && branchNames.length > 0) {
       console.log(`[删除分支API] 批量删除模式: ${branchNames.length}个分支`);
-      // 批量删除
-      const results = [];
-      let successCount = 0;
-      let failureCount = 0;
 
       // 并发删除所有分支
       const deletePromises = branchNames.map(async (branch) => {
         try {
-          const result = await deleteSingleBranch(token, orgId, repoId, branch);
-          if (result.success) {
-            successCount++;
-          } else {
-            failureCount++;
-          }
-          return result;
+          return await deleteSingleBranch(token, orgId, repoId, branch);
         } catch (error) {
-          failureCount++;
           return {
             branchName: branch,
             success: false,
@@ -172,6 +209,15 @@ export async function POST(request) {
       });
 
       const batchResults = await Promise.all(deletePromises);
+      const successCount = batchResults.filter((item) => item.success).length;
+      const failureCount = batchResults.length - successCount;
+
+      // 删除结果已经确定，日志写入失败不能反向改变实际的分支删除结果。
+      try {
+        await logBatchDelete(repoId, branchNames, batchResults, clientInfo);
+      } catch (logError) {
+        console.error('[删除分支API] 批量删除日志记录失败:', logError);
+      }
       
       console.log(`[删除分支API] 批量删除完成: 成功 ${successCount} 个，失败 ${failureCount} 个`);
       

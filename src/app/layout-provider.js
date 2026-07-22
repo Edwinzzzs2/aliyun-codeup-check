@@ -41,6 +41,7 @@ import {
   ExpandMore,
   Schedule,
   Notifications,
+  History,
 } from "@mui/icons-material";
 import { TokenProvider, useToken, useTokenDialog, useTokenMessage, useGlobalLoading, useRepoChange, useTokenConfigDialog } from "../contexts/TokenContext";
 import BuildTime from "../components/BuildTime";
@@ -62,6 +63,11 @@ const menuItems = [
     text: "自动合并",
     icon: <Schedule />,
     path: "/automerge",
+  },
+  {
+    text: "执行日志",
+    icon: <History />,
+    path: "/logs",
   },
   {
     text: "飞书通知",

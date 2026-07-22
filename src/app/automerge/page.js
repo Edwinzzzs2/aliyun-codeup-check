@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -17,18 +17,11 @@ import {
   Paper,
   Switch,
   FormControlLabel,
-  Tabs,
-  Tab,
   Grid,
   Autocomplete,
   CircularProgress,
   LinearProgress,
 } from "@mui/material";
-import {
-  Add as AddIcon,
-  Schedule as ScheduleIcon,
-  History as HistoryIcon,
-} from "@mui/icons-material";
 import moment from "moment";
 import {
   useTokenConfig,
@@ -37,7 +30,6 @@ import {
 } from "../../contexts/TokenContext";
 import BranchSelector from "../../components/BranchSelector";
 import TaskManagementTab from "./TaskManagementTab";
-import ExecutionLogsTab from "./ExecutionLogsTab";
 
 export default function AutoMergePage() {
   const { token, orgId } = useTokenConfig();
@@ -45,25 +37,12 @@ export default function AutoMergePage() {
   const { selectedRepo } = useRepoChange();
 
   const [tasks, setTasks] = useState([]);
-  const [logs, setLogs] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-  const [activeTab, setActiveTab] = useState(0);
-  
-  
-  // 分页状态管理
-  const [pagination, setPagination] = useState({
-    page: 1,
-    pageSize: 20,
-    totalCount: 0,
-    totalPages: 0,
-    hasNext: false,
-    hasPrev: false
-  });
 
   // 简化的loading状态管理
   const [loading, setLoading] = useState({
-    data: false,    // 数据加载（tasks, logs）
+    data: false,    // 任务数据加载
     action: false,  // 操作加载（creating, updating, deleting, executing）
   });
 
@@ -77,26 +56,6 @@ export default function AutoMergePage() {
       return m.utcOffset(8).format("YYYY-MM-DD HH:mm:ss");
     } catch (error) {
       return timeStr;
-    }
-  };
-
-  // 状态文本转换函数
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'success': return '成功';
-      case 'failed': return '失败';
-      case 'running': return '进行中';
-      default: return status || '未知';
-    }
-  };
-
-  // 状态颜色转换函数
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'success': return 'success';
-      case 'failed': return 'error';
-      case 'running': return 'warning';
-      default: return 'default';
     }
   };
 
@@ -162,40 +121,10 @@ export default function AutoMergePage() {
     }
   };
 
-  // 获取执行日志
-  const fetchLogs = async (page = pagination.page, pageSize = pagination.pageSize) => {
-    // 确保参数是数字类型
-    const pageNum = typeof page === 'number' ? page : parseInt(page) || 1;
-    const pageSizeNum = typeof pageSize === 'number' ? pageSize : parseInt(pageSize) || 20;
-    
-    setLoading(prev => ({ ...prev, data: true }));
-    try {
-      const response = await fetch(`/api/automerge/execute?page=${pageNum}&pageSize=${pageSizeNum}`);
-      const data = await response.json();
-      if (data.success) {
-        setLogs(data.data || []);
-        if (data.pagination) {
-          setPagination(data.pagination);
-        }
-      }
-    } catch (error) {
-      console.error("获取执行日志失败:", error);
-    } finally {
-      setLoading(prev => ({ ...prev, data: false }));
-    }
-  };
-
-  // 根据activeTab加载对应数据，包括初始化
+  // 页面初始化时加载任务列表，执行日志由独立菜单页面负责加载。
   useEffect(() => {
-    console.log('AutoMergePage: activeTab changed to:', activeTab);
-    if (activeTab === 0) {
-      console.log('AutoMergePage: Loading tasks...');
-      fetchTasks();
-    } else if (activeTab === 1) {
-      console.log('AutoMergePage: Loading logs...');
-      fetchLogs();
-    }
-  }, [activeTab]);
+    fetchTasks();
+  }, []);
 
   // 组件加载时获取飞书配置列表
   useEffect(() => {
@@ -341,7 +270,6 @@ export default function AutoMergePage() {
         addExecutionLog(successMsg, 'success', data.data);
         showMessage(successMsg, "success");
         fetchTasks();
-        fetchLogs();
       } else {
         // 检查是否是409冲突错误，提供更具体的错误信息
         let errorMsg = `任务执行失败: ${data.message}`;
@@ -425,53 +353,23 @@ export default function AutoMergePage() {
           backdropFilter: "blur(10px)",
         }}
       >
-        <Tabs
-          value={activeTab}
-          onChange={(e, newValue) => setActiveTab(newValue)}
-        >
-          <Tab label="任务管理" />
-          <Tab label="执行日志" />
-          {/* <Tab label="实时日志" /> */}
-        </Tabs>
+        <Typography variant="h6" sx={{ fontWeight: "bold" }}>
+          自动合并
+        </Typography>
       </Paper>
 
-      {activeTab === 0 && (
-        <TaskManagementTab
-           tasks={tasks}
-           loading={loading}
-           token={token}
-           selectedRepo={selectedRepo}
-           onOpenDialog={handleOpenDialog}
-           onExecute={handleExecute}
-           onDelete={handleDelete}
-           onToggleStatus={handleToggleTaskStatus}
-           formatTime={formatTime}
-           feishuConfigs={feishuConfigs}
-         />
-      )}
-
-      {activeTab === 1 && (
-        <ExecutionLogsTab
-           logs={logs}
-           loading={loading}
-           onRefresh={fetchLogs}
-           formatTime={formatTime}
-           getStatusText={getStatusText}
-           getStatusColor={getStatusColor}
-           pagination={pagination}
-           onPaginationChange={(newPage, newPageSize) => {
-             setPagination(prev => ({ ...prev, page: newPage, pageSize: newPageSize }));
-             fetchLogs(newPage, newPageSize);
-           }}
-         />
-      )}
-
-      {/* {activeTab === 2 && (
-        <RealtimeLogsTab
-           executionLogs={logs}
-           onClearLogs={() => setLogs([])}
-         />
-      )} */}
+      <TaskManagementTab
+        tasks={tasks}
+        loading={loading}
+        token={token}
+        selectedRepo={selectedRepo}
+        onOpenDialog={handleOpenDialog}
+        onExecute={handleExecute}
+        onDelete={handleDelete}
+        onToggleStatus={handleToggleTaskStatus}
+        formatTime={formatTime}
+        feishuConfigs={feishuConfigs}
+      />
 
       {/* 新建/编辑任务对话框 */}
       <Dialog

@@ -22,6 +22,21 @@ export default function ExecutionLogsTab({
   onRefresh,
   onPaginationChange,
 }) {
+  const getClientText = (requestData) => {
+    if (!requestData) return "-";
+
+    try {
+      const parsed = typeof requestData === "string"
+        ? JSON.parse(requestData)
+        : requestData;
+      const clientInfo = parsed?.clientInfo;
+      if (!clientInfo) return "-";
+      return `${clientInfo.ip || "未知 IP"} | ${clientInfo.userAgent || "未知客户端"}`;
+    } catch (error) {
+      return "-";
+    }
+  };
+
   // 时间格式化函数，与其他页面保持一致
   const formatTime = (timeStr) => {
     if (!timeStr) return '-';
@@ -76,7 +91,7 @@ export default function ExecutionLogsTab({
         borderRadius: 2,
         border: "1px solid rgba(255,255,255,0.3)",
         backdropFilter: "blur(10px)",
-        height: "calc(100vh - 220px)",
+        height: "calc(100vh - 145px)",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
@@ -111,12 +126,13 @@ export default function ExecutionLogsTab({
             message: log.message,
             merge_request_id: log.merge_request_id,
             merge_request_detail_url: log.merge_request_detail_url,
+            client_info: getClientText(log.request_data),
             executed_at: log.executed_at,
           }))}
           columns={[
             {
               field: "task_name",
-              headerName: "任务名称",
+              headerName: "操作/任务名称",
               flex: 1,
               minWidth: 120,
               renderCell: (params) => (
@@ -149,6 +165,25 @@ export default function ExecutionLogsTab({
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
+                  }}
+                  title={params.value}
+                >
+                  {params.value}
+                </Typography>
+              ),
+            },
+            {
+              field: "client_info",
+              headerName: "客户端",
+              flex: 1,
+              minWidth: 240,
+              renderCell: (params) => (
+                <Typography
+                  variant="body2"
+                  sx={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
                   }}
                   title={params.value}
                 >
