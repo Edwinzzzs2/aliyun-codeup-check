@@ -25,6 +25,7 @@ import {
 } from "../../contexts/TokenContext";
 import BranchSelector from "../../components/BranchSelector";
 import confirm from "../../components/confirm";
+import { getProtectedBranchNames } from "../../constants/branches";
 
 export default function HomePage() {
   const { token, orgId } = useTokenConfig();
@@ -251,6 +252,17 @@ export default function HomePage() {
 
     if (selectedBranches.length === 0) {
       showMessage("请先选择要删除的分支", "warning");
+      return;
+    }
+
+    const protectedBranches = getProtectedBranchNames(
+      selectedBranches.map((branch) => branch.name)
+    );
+    if (protectedBranches.length > 0) {
+      showMessage(
+        `以下保护分支不允许删除：${protectedBranches.join("、")}`,
+        "error"
+      );
       return;
     }
 

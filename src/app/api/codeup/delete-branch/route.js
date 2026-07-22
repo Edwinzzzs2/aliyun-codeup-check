@@ -1,5 +1,22 @@
 import { validateRequiredParams, makeCodeupApiRequest, extractSearchParams } from '../utils.js';
 import { AutoMergeDB } from '../../../../../lib/database.supabase';
+import { getProtectedBranchNames } from '../../../../constants/branches.js';
+
+/**
+ * 批量请求只要包含保护分支就整批拒绝，避免出现部分分支已删除的意外结果。
+ */
+function validateDeletableBranches(branchNames) {
+  const protectedBranches = getProtectedBranchNames(branchNames);
+  if (protectedBranches.length === 0) return null;
+
+  return new Response(JSON.stringify({
+    error: `以下保护分支不允许删除：${protectedBranches.join('、')}`,
+    protectedBranches,
+  }), {
+    status: 400,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 
 /**
  * 删除单个分支
@@ -117,6 +134,9 @@ export async function GET(request) {
     ['token', 'orgId', 'repoId', 'branchName']
   );
   if (requiredError) return requiredError;
+
+  const protectedBranchError = validateDeletableBranches([params.branchName]);
+  if (protectedBranchError) return protectedBranchError;
   
   // 删除单个分支
   const result = await deleteSingleBranch(params.token, params.orgId, params.repoId, params.branchName);
@@ -164,6 +184,12 @@ export async function POST(request) {
       ['token', 'orgId', 'repoId']
     );
     if (requiredError) return requiredError;
+
+    const requestedBranchNames = branchName
+      ? [branchName]
+      : Array.isArray(branchNames) ? branchNames : [];
+    const protectedBranchError = validateDeletableBranches(requestedBranchNames);
+    if (protectedBranchError) return protectedBranchError;
 
     // 检查是单个删除还是批量删除
     if (branchName) {
