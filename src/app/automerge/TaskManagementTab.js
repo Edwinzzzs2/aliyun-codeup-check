@@ -12,7 +12,7 @@ import {
   Alert,
   Switch,
 } from "@mui/material";
-import { DataGrid } from "@mui/x-data-grid";
+import ResponsiveDataGrid from "../../components/ResponsiveDataGrid";
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -70,10 +70,10 @@ export default function TaskManagementTab({
         borderRadius: 2,
         border: "1px solid rgba(255,255,255,0.3)",
         backdropFilter: "blur(10px)",
-        height: "calc(100vh - 220px)",
+        height: { xs: "auto", md: "calc(100dvh - 220px)" },
         display: "flex",
         flexDirection: "column",
-        overflow: "hidden",
+        overflow: { xs: "visible", md: "hidden" },
       }}
     >
        <Alert 
@@ -107,7 +107,7 @@ export default function TaskManagementTab({
       </Box>
 
       <Box sx={{ flex: 1, minHeight: 0 }}>
-        <DataGrid
+        <ResponsiveDataGrid
           rows={(tasks || []).map((task) => ({
             id: task.id,
             name: task.name,

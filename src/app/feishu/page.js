@@ -22,7 +22,7 @@ import {
   IconButton,
   Tooltip,
 } from "@mui/material";
-import { DataGrid } from "@mui/x-data-grid";
+import ResponsiveDataGrid from "../../components/ResponsiveDataGrid";
 import {
   Notifications,
   Send,
@@ -269,7 +269,7 @@ export default function FeishuConfigPage() {
   return (
     <Box
       sx={{
-        minHeight: "100vh",
+        minHeight: { xs: "auto", md: "100%" },
       }}
     >
       <Paper
@@ -322,10 +322,10 @@ export default function FeishuConfigPage() {
           borderRadius: 2,
           border: "1px solid rgba(255,255,255,0.3)",
           backdropFilter: "blur(10px)",
-          height: "calc(100vh - 220px)",
+          height: { xs: "auto", md: "calc(100dvh - 220px)" },
           display: "flex",
           flexDirection: "column",
-          overflow: "hidden",
+          overflow: { xs: "visible", md: "hidden" },
         }}
       >
         <Box
@@ -340,7 +340,7 @@ export default function FeishuConfigPage() {
         </Box>
 
         <Box sx={{ flex: 1, minHeight: 0 }}>
-          <DataGrid
+          <ResponsiveDataGrid
             rows={configs.map((config) => ({
               id: config.id,
               name: config.name,

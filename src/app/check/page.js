@@ -14,7 +14,6 @@ import {
   InputAdornment,
   IconButton,
 } from "@mui/material";
-import { DataGrid } from "@mui/x-data-grid";
 import { Search, Refresh, Clear } from "@mui/icons-material";
 
 import {
@@ -26,6 +25,7 @@ import {
 import BranchSelector from "../../components/BranchSelector";
 import confirm from "../../components/confirm";
 import { getProtectedBranchNames } from "../../constants/branches";
+import ResponsiveDataGrid from "../../components/ResponsiveDataGrid";
 
 export default function HomePage() {
   const { token, orgId } = useTokenConfig();
@@ -448,7 +448,7 @@ export default function HomePage() {
   return (
     <Box
       sx={{
-        minHeight: "100vh",
+        minHeight: { xs: "auto", md: "100%" },
       }}
     >
       {/* Loading进度条 - 始终保留空间，避免页面抖动 */}
@@ -496,7 +496,10 @@ export default function HomePage() {
             value={targetBranch}
             onChange={setTargetBranch}
             onError={showMessage}
-            sx={{ minWidth: 360 }}
+            sx={{
+              minWidth: { xs: 0, sm: 360 },
+              width: { xs: "100%", sm: "auto" },
+            }}
             size="small"
             disabled={loading.merge}
           />
@@ -507,13 +510,14 @@ export default function HomePage() {
           gap={2}
           flexWrap="wrap"
           justifyContent="flex-end"
+          sx={{ width: { xs: "100%", sm: "auto" } }}
         >
           <Button
             variant="contained"
             color="error"
             onClick={deleteBranches}
             disabled={loading.delete || selectedBranchNames.length === 0}
-            sx={{ minWidth: 100 }}
+            sx={{ minWidth: 100, flex: { xs: 1, sm: "initial" } }}
             startIcon={loading.delete ? <CircularProgress size={16} /> : null}
           >
             {loading.delete ? "删除中..." : "删除分支"}
@@ -525,7 +529,7 @@ export default function HomePage() {
             disabled={
               loading.merge || !targetBranch || selectedBranchNames.length === 0
             }
-            sx={{ minWidth: 100 }}
+            sx={{ minWidth: 100, flex: { xs: 1, sm: "initial" } }}
             startIcon={loading.merge ? <CircularProgress size={16} /> : null}
           >
             {loading.merge ? "检测中..." : "检测合并"}
@@ -543,17 +547,18 @@ export default function HomePage() {
           borderRadius: 2,
           border: "1px solid rgba(255,255,255,0.3)",
           backdropFilter: "blur(10px)",
-          height: "calc(100vh - 220px)", // 固定高度
+          height: { xs: "auto", md: "calc(100dvh - 220px)" },
           display: "flex",
           flexDirection: "column",
-          overflow: "hidden",
+          overflow: { xs: "visible", md: "hidden" },
         }}
       >
         <Box
           sx={{
             display: "flex",
-            alignItems: "center",
             justifyContent: "space-between",
+            flexDirection: { xs: "column", sm: "row" },
+            alignItems: { xs: "stretch", sm: "center" },
             mb: 2,
             gap: 2,
           }}
@@ -635,7 +640,7 @@ export default function HomePage() {
         </Box>
 
         <Box sx={{ flex: 1, minHeight: 0 }}>
-          <DataGrid
+          <ResponsiveDataGrid
             rows={branches}
             columns={columns}
             getRowId={(row) => row.name}

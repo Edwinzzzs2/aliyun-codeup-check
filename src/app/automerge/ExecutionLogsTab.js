@@ -9,7 +9,7 @@ import {
   Chip,
   CircularProgress,
 } from "@mui/material";
-import { DataGrid } from "@mui/x-data-grid";
+import ResponsiveDataGrid from "../../components/ResponsiveDataGrid";
 import {
   Refresh as RefreshIcon,
 } from "@mui/icons-material";
@@ -91,10 +91,10 @@ export default function ExecutionLogsTab({
         borderRadius: 2,
         border: "1px solid rgba(255,255,255,0.3)",
         backdropFilter: "blur(10px)",
-        height: "calc(100vh - 145px)",
+        height: { xs: "auto", md: "calc(100dvh - 145px)" },
         display: "flex",
         flexDirection: "column",
-        overflow: "hidden",
+        overflow: { xs: "visible", md: "hidden" },
       }}
     >
       <Box
@@ -118,7 +118,7 @@ export default function ExecutionLogsTab({
       </Box>
 
       <Box sx={{ flex: 1, minHeight: 0 }}>
-        <DataGrid
+        <ResponsiveDataGrid
           rows={(logs || []).map((log) => ({
             id: log.id,
             task_name: log.task_name,

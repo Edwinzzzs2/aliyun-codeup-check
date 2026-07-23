@@ -13,7 +13,6 @@ import {
 import RefreshIcon from "@mui/icons-material/Refresh";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
-import { DataGrid } from "@mui/x-data-grid";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import moment from "moment";
 
@@ -23,6 +22,7 @@ import {
   useRepoChange,
 } from "../../contexts/TokenContext";
 import CompareDialog from "./CompareDialog";
+import ResponsiveDataGrid from "../../components/ResponsiveDataGrid";
 import BranchSelector from "../../components/BranchSelector";
 
 export default function MergeRequest() {
@@ -376,7 +376,7 @@ export default function MergeRequest() {
   return (
     <Box
       sx={{
-        minHeight: "100vh",
+        minHeight: { xs: "auto", md: "100%" },
       }}
     >
       <Box sx={{ width: "100%", height: "4px" }}>
@@ -420,7 +420,11 @@ export default function MergeRequest() {
             value={branchState.sourceBranch}
             onChange={handleSourceBranchChange}
             onError={showMessage}
-            sx={{ minWidth: 200, flex: 1 }}
+            sx={{
+              minWidth: { xs: 0, sm: 200 },
+              width: { xs: "100%", sm: "auto" },
+              flex: 1,
+            }}
             size="small"
           />
           <BranchSelector
@@ -432,7 +436,11 @@ export default function MergeRequest() {
             value={branchState.targetBranch}
             onChange={handleTargetBranchChange}
             onError={showMessage}
-            sx={{ minWidth: 200, flex: 1 }}
+            sx={{
+              minWidth: { xs: 0, sm: 200 },
+              width: { xs: "100%", sm: "auto" },
+              flex: 1,
+            }}
             size="small"
           />
         </Box>
@@ -442,11 +450,12 @@ export default function MergeRequest() {
           gap={2}
           flexWrap="wrap"
           justifyContent="flex-end"
+          sx={{ width: { xs: "100%", sm: "auto" } }}
         >
           <Button
             variant="outlined"
             onClick={handleOpenCompareDialog}
-            sx={{ minWidth: 80 }}
+            sx={{ minWidth: 80, flex: { xs: 1, sm: "initial" } }}
             disabled={
               !branchState.sourceBranch ||
               !branchState.targetBranch ||
@@ -460,6 +469,7 @@ export default function MergeRequest() {
             onClick={handleCreateMergeRequest}
             sx={{
               minWidth: 100,
+              flex: { xs: 1, sm: "initial" },
               opacity: canCreateMerge ? 1 : 0.6,
               backgroundColor: canCreateMerge ? undefined : "grey.400",
               "&:hover": {
@@ -492,10 +502,10 @@ export default function MergeRequest() {
           borderRadius: 2,
           border: "1px solid rgba(255,255,255,0.3)",
           backdropFilter: "blur(10px)",
-          height: "calc(100vh - 220px)", // 固定高度
+          height: { xs: "auto", md: "calc(100dvh - 220px)" },
           display: "flex",
           flexDirection: "column",
-          overflow: "hidden",
+          overflow: { xs: "visible", md: "hidden" },
         }}
       >
         <Box
@@ -526,7 +536,7 @@ export default function MergeRequest() {
           </IconButton>
         </Box>
         <Box sx={{ flex: 1, minHeight: 0 }}>
-          <DataGrid
+          <ResponsiveDataGrid
               rows={mergeRequests.map((mr, index) => ({
               id: mr.localId || mr.id || index,
               title: mr.title,

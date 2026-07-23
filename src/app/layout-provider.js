@@ -19,7 +19,6 @@ import {
   MenuItem,
   Button,
   CircularProgress,
-  Divider,
   Snackbar,
   Alert,
   LinearProgress,
@@ -30,6 +29,8 @@ import {
   TextField,
   InputAdornment,
   IconButton,
+  BottomNavigation,
+  BottomNavigationAction,
 } from "@mui/material";
 import {
   Assessment,
@@ -39,7 +40,6 @@ import {
   Visibility,
   VisibilityOff,
   ExpandMore,
-  Schedule,
   Notifications,
   History,
 } from "@mui/icons-material";
@@ -59,11 +59,7 @@ const menuItems = [
     icon: <MergeType />,
     path: "/merge",
   },
-  {
-    text: "自动合并",
-    icon: <Schedule />,
-    path: "/automerge",
-  },
+  // 自动合并暂时不在导航中展示，仍可通过 /automerge 直接访问。
   {
     text: "执行日志",
     icon: <History />,
@@ -88,7 +84,7 @@ function LayoutContent({ children }) {
   const pathname = usePathname();
   const { token, orgId } = useToken();
   const { snackbar, setSnackbar, showMessage } = useTokenMessage();
-  const { globalLoading, setGlobalLoadingState } = useGlobalLoading();
+  const { globalLoading } = useGlobalLoading();
   const { selectedRepo, setSelectedRepo, handleRepoChange } = useRepoChange();
   const { openConfigDialog: openConfigDialogFromContext } = useTokenConfigDialog();
 
@@ -188,7 +184,14 @@ function LayoutContent({ children }) {
   };
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100dvh",
+        height: { md: "100dvh" },
+      }}
+    >
       <AppBar
         position="fixed"
         elevation={0}
@@ -200,29 +203,108 @@ function LayoutContent({ children }) {
           zIndex: (theme) => theme.zIndex.drawer + 1,
         }}
       >
-        <Toolbar sx={{ justifyContent: "space-between", minHeight: "64px !important", px: 3 }}>
-          {/* 左侧：应用标题 + 代码库选择 */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Typography variant="h6" noWrap component="div" sx={{ fontSize: "1.25rem", fontWeight: 700, color: "#1976d2" }}>
-              CodeUp 工具
-            </Typography>
-            <FormControl size="small" sx={{ minWidth: 320 }}>
-              <InputLabel id="global-repo-select-label">选择代码库</InputLabel>
-              <Select labelId="global-repo-select-label" value={selectedRepo} label="选择代码库" onChange={handleRepoSelection} disabled={loading.repos} sx={{ backgroundColor: "white" }}>
-                {repos.map((repo) => (
-                  <MenuItem key={repo.id} value={repo.id}>
-                    {repo.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-          {/* 右侧：操作按钮 */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Button variant="outlined" size="small" startIcon={loading.repos ? <CircularProgress size={16} /> : <Sync />} onClick={fetchRepos} disabled={loading.repos || !token} sx={{ color: "#1976d2", borderColor: "#1976d2" }}>
+        <Toolbar
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "minmax(0, 1fr) auto",
+              md: "auto minmax(280px, 420px) minmax(24px, 1fr) auto",
+            },
+            gridTemplateRows: { xs: "40px 48px", md: "64px" },
+            alignItems: "center",
+            columnGap: { xs: 1, md: 4 },
+            rowGap: 1,
+            minHeight: { xs: "112px !important", md: "64px !important" },
+            px: { xs: 1.5, md: 3 },
+            py: { xs: 1, md: 0 },
+          }}
+        >
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{
+              gridColumn: 1,
+              gridRow: 1,
+              fontSize: { xs: "1.05rem", md: "1.25rem" },
+              fontWeight: 750,
+              color: "#1565c0",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            CodeUp 工具
+          </Typography>
+
+          <FormControl
+            size="small"
+            sx={{
+              minWidth: 0,
+              width: "100%",
+              gridColumn: { xs: "1 / 3", md: 2 },
+              gridRow: { xs: 2, md: 1 },
+            }}
+          >
+            <InputLabel id="global-repo-select-label">选择代码库</InputLabel>
+            <Select
+              labelId="global-repo-select-label"
+              value={selectedRepo}
+              label="选择代码库"
+              onChange={handleRepoSelection}
+              disabled={loading.repos}
+              sx={{ backgroundColor: "white" }}
+            >
+              {repos.map((repo) => (
+                <MenuItem key={repo.id} value={repo.id}>
+                  {repo.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              gap: 0.5,
+              gridColumn: { xs: 2, md: 4 },
+              gridRow: 1,
+            }}
+          >
+            <IconButton
+              onClick={fetchRepos}
+              disabled={loading.repos || !token}
+              aria-label={loading.repos ? "正在同步代码库" : "同步代码库"}
+              sx={{ display: { md: "none" }, color: "primary.main" }}
+            >
+              {loading.repos ? <CircularProgress size={20} /> : <Sync />}
+            </IconButton>
+            <IconButton
+              onClick={openConfigDialog}
+              aria-label="配置 Token"
+              sx={{ display: { md: "none" }, color: "primary.main" }}
+            >
+              <Settings />
+            </IconButton>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={
+                loading.repos ? <CircularProgress size={16} /> : <Sync />
+              }
+              onClick={fetchRepos}
+              disabled={loading.repos || !token}
+              sx={{ display: { xs: "none", md: "inline-flex" } }}
+            >
               {loading.repos ? "同步中..." : "同步"}
             </Button>
-            <Button variant="outlined" size="small" startIcon={<Settings />} onClick={openConfigDialog} sx={{ color: "#1976d2", borderColor: "#1976d2" }}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<Settings />}
+              onClick={openConfigDialog}
+              sx={{ display: { xs: "none", md: "inline-flex" } }}
+            >
               配置 Token
             </Button>
           </Box>
@@ -232,11 +314,20 @@ function LayoutContent({ children }) {
         )}
       </AppBar>
       {/* 下方区域：左侧导航 + 右侧内容 */}
-      <Box sx={{ display: "flex", flexGrow: 1, mt: 8 }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexGrow: 1,
+          minHeight: 0,
+          mt: { xs: "112px", md: 8 },
+          pb: { xs: "calc(64px + env(safe-area-inset-bottom))", md: 0 },
+        }}
+      >
         {/* 左侧导航栏 */}
         <Drawer
           variant="permanent"
           sx={{
+            display: { xs: "none", md: "block" },
             width: drawerWidth,
             flexShrink: 0,
             "& .MuiDrawer-paper": {
@@ -288,10 +379,65 @@ function LayoutContent({ children }) {
         </Drawer>
 
         {/* 右侧主内容区域 */}
-        <Box component="main" sx={{ flexGrow: 1, height: "calc(100vh - 64px)",  overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          <Box sx={{ flexGrow: 1, overflow: "hidden", p: 3, backgroundColor: "#f5f7fb" }}>{children}</Box>
+        <Box
+          component="main"
+          sx={{
+            minWidth: 0,
+            flexGrow: 1,
+            height: { md: "calc(100dvh - 64px)" },
+            overflow: { xs: "visible", md: "hidden" },
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <Box
+            sx={{
+              flexGrow: 1,
+              minWidth: 0,
+              overflow: { xs: "visible", md: "hidden" },
+              p: { xs: 1.25, sm: 2, md: 3 },
+              backgroundColor: "#f5f7fb",
+            }}
+          >
+            {children}
+          </Box>
         </Box>
       </Box>
+      <BottomNavigation
+        showLabels
+        value={menuItems.some((item) => item.path === pathname) ? pathname : false}
+        onChange={(_, path) => handleNavigation(path)}
+        sx={{
+          display: { xs: "flex", md: "none" },
+          position: "fixed",
+          zIndex: (theme) => theme.zIndex.appBar,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: "calc(64px + env(safe-area-inset-bottom))",
+          pb: "env(safe-area-inset-bottom)",
+          borderTop: "1px solid",
+          borderColor: "divider",
+          boxShadow: "0 -10px 30px rgba(31, 41, 55, 0.08)",
+          "& .MuiBottomNavigationAction-root": {
+            minWidth: 0,
+            px: 0.5,
+          },
+          "& .MuiBottomNavigationAction-label": {
+            fontSize: "0.68rem",
+            whiteSpace: "nowrap",
+          },
+        }}
+      >
+        {menuItems.map((item) => (
+          <BottomNavigationAction
+            key={item.path}
+            label={item.text}
+            value={item.path}
+            icon={item.icon}
+          />
+        ))}
+      </BottomNavigation>
       {/* Token配置弹窗组件 */}
       <TokenConfigDialog />
 

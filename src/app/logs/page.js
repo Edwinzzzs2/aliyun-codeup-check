@@ -39,7 +39,7 @@ export default function ExecutionLogsPage() {
   }, [fetchLogs]);
 
   return (
-    <Box sx={{ minHeight: "100vh" }}>
+    <Box sx={{ minHeight: { xs: "auto", md: "100%" } }}>
       <Box sx={{ width: "100%", height: 4 }}>
         {loading.data && <LinearProgress />}
       </Box>

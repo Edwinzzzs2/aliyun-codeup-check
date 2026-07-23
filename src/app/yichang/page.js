@@ -10,7 +10,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Refresh as RefreshIcon } from "@mui/icons-material";
-import { DataGrid } from "@mui/x-data-grid";
+import ResponsiveDataGrid from "../../components/ResponsiveDataGrid";
 import moment from "moment";
 
 function parseJson(value) {
@@ -141,11 +141,11 @@ export default function ExceptionLogsPage() {
   return (
     <Paper
       sx={{
-        height: "calc(100vh - 112px)",
+        height: { xs: "auto", md: "calc(100dvh - 112px)" },
         p: 2,
         display: "flex",
         flexDirection: "column",
-        overflow: "hidden",
+        overflow: { xs: "visible", md: "hidden" },
       }}
     >
       <Box
@@ -176,7 +176,7 @@ export default function ExceptionLogsPage() {
       </Box>
 
       <Box sx={{ flex: 1, minHeight: 0 }}>
-        <DataGrid
+        <ResponsiveDataGrid
           rows={rows}
           columns={columns}
           loading={loading}
