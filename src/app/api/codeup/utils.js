@@ -1,6 +1,67 @@
 /**
  * 阿里云 Codeup API 通用请求处理工具
  */
+import { AutoMergeDB } from '../../../../lib/database.supabase';
+
+function getRequestClientInfo(request) {
+  if (!request?.headers) return null;
+
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  return {
+    ip: forwardedFor?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')
+      || '未知 IP',
+    userAgent: request.headers.get('user-agent') || '未知客户端',
+  };
+}
+
+function sanitizeParams(params) {
+  // Token、密钥等认证信息严禁写入异常日志。
+  return Object.fromEntries(
+    Object.entries(params || {}).filter(([key]) => (
+      !/(token|authorization|password|secret)/i.test(key)
+    ))
+  );
+}
+
+async function logCodeupApiException({
+  apiName,
+  method,
+  fullUrl,
+  queryParams,
+  request,
+  message,
+  responseData,
+  error,
+}) {
+  try {
+    const endpoint = new URL(fullUrl).pathname;
+    const cause = error?.cause;
+    const errorDetails = [
+      error?.message,
+      cause?.code,
+      cause?.message,
+    ].filter(Boolean).join(' | ') || null;
+
+    await AutoMergeDB.logDetailedExecution({
+      taskName: apiName || `${method} ${endpoint}`,
+      status: 'failed',
+      message,
+      requestData: {
+        method,
+        endpoint,
+        queryParams: sanitizeParams(queryParams),
+        clientInfo: getRequestClientInfo(request),
+      },
+      responseData: responseData || null,
+      errorDetails,
+      executionType: 'api_exception',
+    });
+  } catch (logError) {
+    // 记录日志失败不能覆盖原接口异常，否则客户端会看到错误的失败原因。
+    console.error('[Codeup API] 异常日志写入失败:', logError);
+  }
+}
 
 /**
  * 验证必填参数
@@ -145,6 +206,8 @@ function getErrorCauseDetails(error) {
  * @param {Object} config.queryParams - 查询参数对象
  * @param {string[]} config.allowedQueryFields - 允许的查询字段
  * @param {boolean} config.includePagination - 是否包含分页信息
+ * @param {Request} config.request - 当前客户端请求，用于记录来源
+ * @param {string} config.apiName - 异常页展示的接口名称
  * @returns {Response} - API响应
  */
 export async function makeCodeupApiRequest({
@@ -152,7 +215,10 @@ export async function makeCodeupApiRequest({
   token,
   queryParams = {},
   allowedQueryFields = [],
-  includePagination = false
+  includePagination = false,
+  request = null,
+  apiName = '',
+  method = 'GET',
 }) {
   const traceId = createTraceId();
   const startedAt = Date.now();
@@ -180,6 +246,7 @@ export async function makeCodeupApiRequest({
 
     // 发起请求
     const response = await fetchCodeup(fullUrl, {
+      method,
       headers: {
         "Content-Type": "application/json",
         "x-yunxiao-token": token,
@@ -212,6 +279,9 @@ export async function makeCodeupApiRequest({
 
     // 如果请求失败，返回标准化的错误响应
     if (!response.ok) {
+      const details = sanitizeLogText(
+        data.errorDescription || data.errorMessage || data.message || '未知错误'
+      );
       console.error("[CodeUp API] upstream error", {
         traceId,
         url: logUrl,
@@ -222,12 +292,28 @@ export async function makeCodeupApiRequest({
         responseBodyPreview,
       });
 
+      await logCodeupApiException({
+        apiName,
+        method,
+        fullUrl,
+        queryParams,
+        request,
+        message: `Codeup 接口返回 HTTP ${response.status}：${details}`,
+        responseData: {
+          status: upstreamStatus,
+          requestId: upstreamRequestId,
+          bodyPreview: responseBodyPreview,
+          traceId,
+          durationMs: Date.now() - startedAt,
+        },
+      });
+
       return new Response(
         JSON.stringify({
           error: 'API请求失败',
           errorDescription: data.errorDescription,
           errorMessage: data.errorMessage,
-          details: data.errorDescription || data.errorMessage || data.message || '未知错误'
+          details
         }),
         {
           status: response.status,
@@ -273,6 +359,16 @@ export async function makeCodeupApiRequest({
       responseBodyPreview,
       error: sanitizeLogText(error?.message),
       ...getErrorCauseDetails(error),
+    });
+
+    await logCodeupApiException({
+      apiName,
+      method,
+      fullUrl,
+      queryParams,
+      request,
+      message: `Codeup 网络请求失败：${error.message}`,
+      error,
     });
 
     return new Response(

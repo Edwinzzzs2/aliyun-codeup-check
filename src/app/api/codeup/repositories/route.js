@@ -23,6 +23,8 @@ export async function GET(request) {
     token: params.token,
     queryParams: params,
     allowedQueryFields: [],
-    includePagination: true
+    includePagination: true,
+    request,
+    apiName: '查询代码库列表',
   });
 }

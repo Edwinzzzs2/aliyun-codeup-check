@@ -46,7 +46,9 @@ export async function GET(request) {
     token,
     queryParams,
     allowedQueryFields: ['page', 'perPage', 'orderBy', 'sort', 'projectIds', 'state', 'search'],
-    includePagination: true
+    includePagination: true,
+    request,
+    apiName: '查询合并请求列表',
   });
 }
 

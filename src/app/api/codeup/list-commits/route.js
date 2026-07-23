@@ -25,6 +25,8 @@ export async function GET(request) {
     token: params.token,
     queryParams: params,
     allowedQueryFields: ['refName', 'since', 'until', 'page', 'perPage', 'path', 'search', 'showSignature', 'committerIds', 'search'],
-    includePagination: true
+    includePagination: true,
+    request,
+    apiName: '查询提交列表',
   });
 }

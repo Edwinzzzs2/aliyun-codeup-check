@@ -31,6 +31,8 @@ export async function GET(request) {
     token: params.token,
     queryParams: params,
     allowedQueryFields: ['accessToken'], // 只有accessToken作为查询参数，branchName已在路径中
-    includePagination: false // 单个分支信息不需要分页
+    includePagination: false, // 单个分支信息不需要分页
+    request,
+    apiName: '查询分支详情',
   });
 }

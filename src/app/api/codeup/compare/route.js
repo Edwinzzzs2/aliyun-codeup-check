@@ -48,7 +48,9 @@ export async function GET(request) {
     token,
     queryParams,
     allowedQueryFields: ['from', 'to', 'sourceType', 'targetType', 'straight'],
-    includePagination: false
+    includePagination: false,
+    request,
+    apiName: '比较代码',
   });
 }
 
@@ -97,7 +99,9 @@ export async function POST(request) {
       token,
       queryParams,
       allowedQueryFields: ['from', 'to', 'sourceType', 'targetType', 'straight'],
-      includePagination: false
+      includePagination: false,
+      request,
+      apiName: '比较代码',
     });
   } catch (error) {
     return new Response(

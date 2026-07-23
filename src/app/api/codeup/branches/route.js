@@ -30,6 +30,8 @@ export async function GET(request) {
     token: params.token,
     queryParams: params,
     allowedQueryFields: ['page', 'perPage', 'sort', 'search'],
-    includePagination: true
+    includePagination: true,
+    request,
+    apiName: '查询分支列表',
   });
 }
