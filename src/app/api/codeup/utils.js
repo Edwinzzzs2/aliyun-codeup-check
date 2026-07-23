@@ -95,8 +95,8 @@ export function getRequestToken(request, fallbackToken = null) {
 }
 
 /**
- * Sends a Codeup request directly or through the configured authenticated proxy.
- * These variables are server-only and must not use the NEXT_PUBLIC_ prefix.
+ * 配置代理地址后统一走代理；Token 可选，免密规则由代理端白名单决定。
+ * 这些变量仅供服务端使用，不能添加 NEXT_PUBLIC_ 前缀。
  */
 export async function fetchCodeup(url, options = {}) {
   const proxyUrl = process.env.CODEUP_PROXY_URL?.trim().replace(/\/+$/, "");
@@ -104,13 +104,11 @@ export async function fetchCodeup(url, options = {}) {
     return fetch(url, options);
   }
 
-  const proxyToken = process.env.CODEUP_PROXY_TOKEN?.trim();
-  if (!proxyToken) {
-    throw new Error("CODEUP_PROXY_TOKEN is required when CODEUP_PROXY_URL is configured");
-  }
-
   const headers = new Headers(options.headers);
-  headers.set("X-Proxy-Token", proxyToken);
+  const proxyToken = process.env.CODEUP_PROXY_TOKEN?.trim();
+  if (proxyToken) {
+    headers.set("X-Proxy-Token", proxyToken);
+  }
 
   return fetch(`${proxyUrl}/${url}`, {
     ...options,
