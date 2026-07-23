@@ -1,10 +1,10 @@
 {
   "functions": {
     "src/app/api/cron/check-tasks/route.js": {
-      "maxDuration": 300
+      "maxDuration": 60
     },
     "src/app/api/webhook/check-tasks/route.js": {
-      "maxDuration": 300
+      "maxDuration": 60
     }
   },
   "crons": [
