@@ -1,0 +1,12 @@
+services:
+  codeup-check:
+    image: ${CODEUP_IMAGE:-ghcr.io/edwinzzzs2/aliyun-codeup-check:latest}
+    container_name: aliyun-codeup-check
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL:?SUPABASE_URL is required}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?SUPABASE_ANON_KEY is required}
+      CODEUP_PROXY_URL: ${CODEUP_PROXY_URL:-}
+      CODEUP_PROXY_TOKEN: ${CODEUP_PROXY_TOKEN:-}

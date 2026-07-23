@@ -71,16 +71,61 @@ npm start
 
 1. **GitHub 集成**: 推送到 `main` 分支自动构建，支持预览部署和自动生成URL
 2. **环境变量**: 在 Vercel Dashboard 配置 `CODEUP_TOKEN`、`CODEUP_ORG_ID`、`NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`
-3. **自动化功能**: 定时任务（Cron Jobs）、Webhook 触发、函数超时配置（5分钟）
+3. **自动化功能**: 定时任务（Cron Jobs）、Webhook 触发、Hobby 计划函数最长运行 60 秒
 
 ### Docker 部署
 
-```bash
-# 构建镜像
-docker build -t aliyun-codeup-check .
+项目使用 Next.js standalone 输出和多阶段构建，最终容器以非 root 用户运行。
 
-# 运行容器
-docker run -p 3000:3000 aliyun-codeup-check
+#### 使用 GHCR 镜像
+
+```bash
+# 拉取 main 分支的最新镜像
+docker pull ghcr.io/edwinzzzs2/aliyun-codeup-check:latest
+
+# 准备运行配置
+cp .env.docker.example .env
+
+# 启动并在后台运行
+docker compose up -d
+```
+
+默认访问地址为 [http://localhost:3000](http://localhost:3000)。修改 `.env` 中的 `APP_PORT` 可以更换宿主机端口。
+
+如果 GHCR 包尚未设为公开，需要先使用具有 `read:packages` 权限的 GitHub Token 登录：
+
+```bash
+echo "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+```
+
+#### 本地构建
+
+```bash
+docker build -t aliyun-codeup-check:local .
+
+docker run --rm \
+  --name aliyun-codeup-check \
+  -p 3000:3000 \
+  --env-file .env \
+  aliyun-codeup-check:local
+```
+
+#### GitHub 自动发布
+
+`.github/workflows/docker-publish.yml` 会自动构建 `linux/amd64` 和 `linux/arm64`：
+
+- 推送到 `main`：发布 `latest`、`main` 和提交 SHA 标签。
+- 推送 `v*` 标签：发布对应版本标签，例如 `v1.0.0`。
+- Pull Request：只验证镜像构建，不推送。
+- 手动运行：可在 GitHub Actions 页面通过 `workflow_dispatch` 触发。
+
+工作流使用仓库自带的 `GITHUB_TOKEN` 写入 GHCR。首次发布后，可在 GitHub Packages 页面将镜像设为 Public。
+
+发布版本示例：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 ## 📁 项目结构
@@ -110,6 +155,10 @@ aliyun-codeup-check/
 │   ├── scheduler.js          # 任务调度器
 │   └── supabase.js           # Supabase客户端
 ├── public/                   # 静态资源
+├── .github/workflows/        # GitHub Actions 工作流
+├── Dockerfile                # 多阶段容器镜像构建
+├── compose.yaml              # GHCR 镜像启动配置
+├── .dockerignore             # Docker 构建上下文排除项
 ├── .env.local.example        # 环境变量示例
 ├── package.json             # 项目配置
 ├── next.config.mjs          # Next.js 配置

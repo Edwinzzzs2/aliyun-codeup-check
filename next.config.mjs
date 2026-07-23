@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // 生成可直接放入精简 Docker 运行镜像的独立产物。
+  output: "standalone",
   env: {
     BUILD_TIME: new Date().toISOString(),
   },
