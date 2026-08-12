@@ -34,6 +34,7 @@ import {
   ContentCopy,
 } from "@mui/icons-material";
 import { useTokenMessage } from "../../contexts/TokenContext";
+import { codeupFetch } from "../../utils/codeup-fetch";
 
 export default function FeishuConfigPage() {
   const { showMessage } = useTokenMessage();
@@ -70,7 +71,7 @@ export default function FeishuConfigPage() {
   const fetchConfigs = async () => {
     setLoading((prev) => ({ ...prev, fetch: true }));
     try {
-      const response = await fetch("/api/feishu/configs");
+      const response = await codeupFetch("/api/feishu/configs");
       const result = await response.json();
 
       if (result.success) {
@@ -141,7 +142,7 @@ export default function FeishuConfigPage() {
         : "/api/feishu/configs";
       const method = editingConfig ? "PUT" : "POST";
 
-      const response = await fetch(url, {
+      const response = await codeupFetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
@@ -174,7 +175,7 @@ export default function FeishuConfigPage() {
 
     setLoading((prev) => ({ ...prev, test: true }));
     try {
-      const response = await fetch("/api/feishu/notify", {
+      const response = await codeupFetch("/api/feishu/notify", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -216,7 +217,7 @@ export default function FeishuConfigPage() {
 
     setLoading((prev) => ({ ...prev, delete: true }));
     try {
-      const response = await fetch(`/api/feishu/configs/${deletingConfig.id}`, {
+      const response = await codeupFetch(`/api/feishu/configs/${deletingConfig.id}`, {
         method: "DELETE",
       });
 

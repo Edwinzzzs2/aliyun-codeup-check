@@ -1,9 +1,11 @@
 import { AutoMergeDB } from "../../../../../lib/database.supabase";
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthorizationError, requireRepositoryRead } from "../../../../../lib/codeup.authorization";
 
 // 发送飞书通知
 export async function POST(request) {
   try {
+    await requireRepositoryRead(request);
     const body = await request.json();
     const {
       type,
@@ -171,13 +173,13 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("发送飞书通知错误:", error);
+    const authorizationError = getAuthorizationError(error);
     return NextResponse.json(
       {
         success: false,
-        message: "发送飞书通知失败",
-        error: error.message,
+        message: authorizationError?.message || "发送飞书通知失败",
       },
-      { status: 500 }
+      { status: authorizationError?.status || 500 }
     );
   }
 }

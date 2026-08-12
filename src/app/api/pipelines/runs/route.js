@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { PipelineDB } from '../../../../../lib/pipeline.database';
 import { getPipelineRun } from '../../../../../lib/pipeline.service';
-
-function getToken(request) {
-  return request.headers.get('x-yunxiao-token') || process.env.CODEUP_TOKEN;
-}
+import {
+  getAuthorizationError,
+  requireRepositoryRead,
+} from '../../../../../lib/codeup.authorization';
 
 const ACTIVE_RUN_STATUSES = new Set(['RUNNING', 'WAITING']);
 
@@ -25,15 +25,12 @@ function runKey(organizationId, pipelineId, pipelineRunId) {
 
 export async function GET(request) {
   try {
-    const token = getToken(request);
-    if (!token) {
-      return NextResponse.json({ success: false, message: '请先配置云效 Token' }, { status: 400 });
-    }
-
-    const [tasks, logs] = await Promise.all([
-      PipelineDB.getAllTasks(),
-      PipelineDB.getLogsWithPipelineRuns(100),
-    ]);
+    const scope = await requireRepositoryRead(request);
+    const tasks = (await PipelineDB.getAllTasks()).filter((task) => (
+      String(task.organization_id) === scope.organizationId
+      && String(task.repository_id) === scope.repositoryId
+    ));
+    const logs = await PipelineDB.getLogsWithPipelineRuns(100, tasks.map((task) => task.id));
     const taskMap = new Map(tasks.map((task) => [String(task.id), task]));
     const targets = new Map();
 
@@ -83,7 +80,7 @@ export async function GET(request) {
     // 已完成实例读取数据库缓存，仅轮询未落库或仍在运行的实例，支持多流水线而不放大请求量。
     const targetList = [...targets.values()];
     const settledRuns = await Promise.allSettled(
-      targetList.map((target) => getPipelineRun(target.task, token))
+      targetList.map((target) => getPipelineRun(target.task, scope.token))
     );
     const freshRuns = new Map();
     const runErrors = new Map();
@@ -114,6 +111,10 @@ export async function GET(request) {
     return NextResponse.json({ success: true, data: { taskRuns, logRuns } });
   } catch (error) {
     console.error('[Pipeline Runs] 获取运行状态失败:', error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    const authorizationError = getAuthorizationError(error);
+    return NextResponse.json(
+      { success: false, message: authorizationError?.message || error.message },
+      { status: authorizationError?.status || 500 }
+    );
   }
 }

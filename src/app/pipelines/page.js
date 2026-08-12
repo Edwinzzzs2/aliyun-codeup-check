@@ -306,6 +306,8 @@ export default function PipelineManagementPage() {
       headers: {
         ...(options.body ? { "Content-Type": "application/json" } : {}),
         ...(token ? { "x-yunxiao-token": token } : {}),
+        ...(orgId ? { "x-codeup-organization-id": orgId } : {}),
+        ...(selectedRepo ? { "x-codeup-repository-id": selectedRepo } : {}),
         ...options.headers,
       },
     });
@@ -314,7 +316,7 @@ export default function PipelineManagementPage() {
       throw new Error(data.message || `请求失败（HTTP ${response.status}）`);
     }
     return data;
-  }, [token]);
+  }, [orgId, selectedRepo, token]);
 
   const loadData = useCallback(async (mode = "background") => {
     // 首次加载显示内容骨架；后续刷新保留已有数据，只在操作入口反馈进度。
@@ -322,6 +324,16 @@ export default function PipelineManagementPage() {
     if (mode === "refresh") setRefreshing(true);
     if (mode === "table") setLogsLoading(true);
     setPageError("");
+    if (!token || !selectedRepo) {
+      setTasks([]);
+      setLogs([]);
+      setLogTotalCount(0);
+      if (mode === "initial") setInitialLoading(false);
+      if (mode === "refresh") setRefreshing(false);
+      if (mode === "table") setLogsLoading(false);
+      setPageError(!token ? "请先配置阿里云 Codeup Token" : "请先选择代码仓库");
+      return;
+    }
     try {
       const logParams = new URLSearchParams({
         compact: "true",
@@ -343,9 +355,10 @@ export default function PipelineManagementPage() {
       if (mode === "refresh") setRefreshing(false);
       if (mode === "table") setLogsLoading(false);
     }
-  }, [logPage, logPageSize, logSearchQuery, requestJson]);
+  }, [logPage, logPageSize, logSearchQuery, requestJson, selectedRepo, token]);
 
   const loadRunStates = useCallback(async () => {
+    if (!token || !selectedRepo) return;
     try {
       const result = await requestJson("/api/pipelines/runs");
       const taskRuns = Array.isArray(result.data) ? result.data : result.data?.taskRuns || [];
@@ -359,7 +372,7 @@ export default function PipelineManagementPage() {
     } catch (error) {
       console.error("[Pipeline] 刷新运行状态失败:", error);
     }
-  }, [requestJson]);
+  }, [requestJson, selectedRepo, token]);
 
   useEffect(() => {
     const mode = hasLoadedData.current ? "table" : "initial";

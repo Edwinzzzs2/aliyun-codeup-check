@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { PipelineDB } from '../../../../../lib/pipeline.database';
 import { executePipelineTask } from '../../../../../lib/pipeline.service';
+import {
+  getAuthorizationError,
+  requireRepositoryRead,
+} from '../../../../../lib/codeup.authorization';
 
 export async function POST(request) {
   try {
@@ -14,10 +18,8 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: '任务不存在' }, { status: 404 });
     }
 
-    const token = request.headers.get('x-yunxiao-token') || process.env.CODEUP_TOKEN;
-    if (!token) {
-      return NextResponse.json({ success: false, message: '请先配置云效 Token' }, { status: 400 });
-    }
+    // 手动操作只接受浏览器显式传入的 Token，服务端 Token 仅供后台调度器使用。
+    const { token } = await requireRepositoryRead(request, task);
 
     const result = await executePipelineTask(task, {
       token,
@@ -27,6 +29,10 @@ export async function POST(request) {
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
     console.error('[Pipeline Execute] 执行失败:', error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    const authorizationError = getAuthorizationError(error);
+    return NextResponse.json(
+      { success: false, message: authorizationError?.message || error.message },
+      { status: authorizationError?.status || 500 }
+    );
   }
 }

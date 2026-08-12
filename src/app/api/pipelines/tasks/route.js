@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { PipelineDB } from '../../../../../lib/pipeline.database';
 import { getBranchHead } from '../../../../../lib/pipeline.service';
+import {
+  getAuthorizationError,
+  requireRepositoryRead,
+} from '../../../../../lib/codeup.authorization';
 
 const REQUIRED_FIELDS = [
   'name',
@@ -22,16 +26,24 @@ function validateTask(task) {
   return null;
 }
 
-function getToken(request) {
-  return request.headers.get('x-yunxiao-token') || process.env.CODEUP_TOKEN;
+function sameRepository(task, organizationId, repositoryId) {
+  return String(task.organization_id) === String(organizationId)
+    && String(task.repository_id) === String(repositoryId);
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
-    return NextResponse.json({ success: true, data: await PipelineDB.getAllTasks() });
+    const scope = await requireRepositoryRead(request);
+    const tasks = (await PipelineDB.getAllTasks())
+      .filter((task) => sameRepository(task, scope.organizationId, scope.repositoryId));
+    return NextResponse.json({ success: true, data: tasks });
   } catch (error) {
     console.error('[Pipeline Tasks] 获取任务失败:', error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    const authorizationError = getAuthorizationError(error);
+    return NextResponse.json(
+      { success: false, message: authorizationError?.message || error.message },
+      { status: authorizationError?.status || 500 }
+    );
   }
 }
 
@@ -43,10 +55,7 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: validationMessage }, { status: 400 });
     }
 
-    const token = getToken(request);
-    if (!token) {
-      return NextResponse.json({ success: false, message: '请先配置云效 Token' }, { status: 400 });
-    }
+    const { token } = await requireRepositoryRead(request, task);
 
     // 创建任务时读取一次真实 HEAD 作为基线，避免首次 Cron 误触发历史代码。
     const { commitId, commitMessage } = await getBranchHead(task, token);
@@ -70,7 +79,11 @@ export async function POST(request) {
     return NextResponse.json({ success: true, data: created }, { status: 201 });
   } catch (error) {
     console.error('[Pipeline Tasks] 创建任务失败:', error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    const authorizationError = getAuthorizationError(error);
+    return NextResponse.json(
+      { success: false, message: authorizationError?.message || error.message },
+      { status: authorizationError?.status || 500 }
+    );
   }
 }
 
@@ -86,6 +99,7 @@ export async function PUT(request) {
     if (!current) {
       return NextResponse.json({ success: false, message: '任务不存在' }, { status: 404 });
     }
+    const { token } = await requireRepositoryRead(request, current);
 
     const updates = await request.json();
     const nextTask = { ...current, ...updates };
@@ -97,10 +111,7 @@ export async function PUT(request) {
     const sourceChanged = ['organization_id', 'repository_id', 'branch_name']
       .some((field) => updates[field] !== undefined && updates[field] !== current[field]);
     if (sourceChanged) {
-      const token = getToken(request);
-      if (!token) {
-        return NextResponse.json({ success: false, message: '修改监听分支需要云效 Token' }, { status: 400 });
-      }
+      await requireRepositoryRead(request, nextTask);
       const { commitId } = await getBranchHead(nextTask, token);
       updates.last_commit_id = commitId;
     }
@@ -114,7 +125,11 @@ export async function PUT(request) {
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     console.error('[Pipeline Tasks] 更新任务失败:', error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    const authorizationError = getAuthorizationError(error);
+    return NextResponse.json(
+      { success: false, message: authorizationError?.message || error.message },
+      { status: authorizationError?.status || 500 }
+    );
   }
 }
 
@@ -125,10 +140,19 @@ export async function DELETE(request) {
     if (!id) {
       return NextResponse.json({ success: false, message: '缺少任务 ID' }, { status: 400 });
     }
+    const current = await PipelineDB.getTaskById(id);
+    if (!current) {
+      return NextResponse.json({ success: false, message: '任务不存在' }, { status: 404 });
+    }
+    await requireRepositoryRead(request, current);
     await PipelineDB.deleteTask(id);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[Pipeline Tasks] 删除任务失败:', error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    const authorizationError = getAuthorizationError(error);
+    return NextResponse.json(
+      { success: false, message: authorizationError?.message || error.message },
+      { status: authorizationError?.status || 500 }
+    );
   }
 }

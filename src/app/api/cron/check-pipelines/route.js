@@ -5,7 +5,9 @@ const scheduler = new PipelineScheduler();
 
 function isAuthorized(request) {
   const cronSecret = process.env.CRON_SECRET;
-  return !cronSecret || request.headers.get('authorization') === `Bearer ${cronSecret}`;
+  // 缺少密钥时保持关闭，避免错误部署后 Cron 接口自动降级为匿名可调用。
+  return Boolean(cronSecret)
+    && request.headers.get('authorization') === `Bearer ${cronSecret}`;
 }
 
 export async function GET(request) {

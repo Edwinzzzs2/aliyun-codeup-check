@@ -1,8 +1,10 @@
 import { AutoMergeDB } from '../../../../../lib/database.supabase';
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthorizationError, requireRepositoryRead } from '../../../../../lib/codeup.authorization';
 
 export async function GET(request) {
   try {
+    await requireRepositoryRead(request);
     const { searchParams } = new URL(request.url);
     const logId = searchParams.get('id');
     const limit = searchParams.get('limit') || 100;
@@ -32,16 +34,17 @@ export async function GET(request) {
     }
   } catch (error) {
     console.error('获取日志错误:', error);
+    const authorizationError = getAuthorizationError(error);
     return NextResponse.json({ 
       success: false, 
-      message: '服务器内部错误',
-      error: error.message 
-    }, { status: 500 });
+      message: authorizationError?.message || '服务器内部错误',
+    }, { status: authorizationError?.status || 500 });
   }
 }
 
 export async function POST(request) {
   try {
+    await requireRepositoryRead(request);
     // 创建详细执行日志
     const logData = await request.json();
     
@@ -83,10 +86,10 @@ export async function POST(request) {
     }, { status: 201 });
   } catch (error) {
     console.error('创建日志错误:', error);
+    const authorizationError = getAuthorizationError(error);
     return NextResponse.json({ 
       success: false, 
-      message: '服务器内部错误',
-      error: error.message 
-    }, { status: 500 });
+      message: authorizationError?.message || '服务器内部错误',
+    }, { status: authorizationError?.status || 500 });
   }
 }

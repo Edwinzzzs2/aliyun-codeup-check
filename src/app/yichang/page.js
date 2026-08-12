@@ -12,6 +12,7 @@ import {
 import { Refresh as RefreshIcon } from "@mui/icons-material";
 import ResponsiveDataGrid from "../../components/ResponsiveDataGrid";
 import moment from "moment";
+import { codeupFetch } from "../../utils/codeup-fetch";
 
 function parseJson(value) {
   if (!value) return {};
@@ -35,7 +36,7 @@ export default function ExceptionLogsPage() {
   const fetchLogs = useCallback(async (page = 1, pageSize = 20) => {
     setLoading(true);
     try {
-      const response = await fetch(
+      const response = await codeupFetch(
         `/api/exceptions?page=${page}&pageSize=${pageSize}`,
         { cache: "no-store" }
       );

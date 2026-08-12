@@ -1,9 +1,11 @@
 import { AutoMergeDB } from '../../../../../lib/database.supabase';
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthorizationError, requireRepositoryRead } from '../../../../../lib/codeup.authorization';
 
 // 获取飞书通知配置
 export async function GET(request) {
   try {
+    await requireRepositoryRead(request);
     const config = await AutoMergeDB.getFeishuConfig();
     return NextResponse.json({ 
       success: true, 
@@ -17,17 +19,18 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error('获取飞书配置错误:', error);
+    const authorizationError = getAuthorizationError(error);
     return NextResponse.json({ 
       success: false, 
-      message: '服务器内部错误',
-      error: error.message 
-    }, { status: 500 });
+      message: authorizationError?.message || '服务器内部错误',
+    }, { status: authorizationError?.status || 500 });
   }
 }
 
 // 创建或更新飞书通知配置
 export async function POST(request) {
   try {
+    await requireRepositoryRead(request);
     const body = await request.json();
     
     // 验证必填字段
@@ -63,17 +66,18 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error('保存飞书配置错误:', error);
+    const authorizationError = getAuthorizationError(error);
     return NextResponse.json({ 
       success: false, 
-      message: '服务器内部错误',
-      error: error.message 
-    }, { status: 500 });
+      message: authorizationError?.message || '服务器内部错误',
+    }, { status: authorizationError?.status || 500 });
   }
 }
 
 // 删除飞书通知配置
 export async function DELETE(request) {
   try {
+    await requireRepositoryRead(request);
     await AutoMergeDB.deleteFeishuConfig();
     return NextResponse.json({ 
       success: true, 
@@ -81,10 +85,10 @@ export async function DELETE(request) {
     });
   } catch (error) {
     console.error('删除飞书配置错误:', error);
+    const authorizationError = getAuthorizationError(error);
     return NextResponse.json({ 
       success: false, 
-      message: '服务器内部错误',
-      error: error.message 
-    }, { status: 500 });
+      message: authorizationError?.message || '服务器内部错误',
+    }, { status: authorizationError?.status || 500 });
   }
 }

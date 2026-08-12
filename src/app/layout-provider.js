@@ -591,7 +591,7 @@ function TokenConfigDialog() {
                   mt: 1,
                 }}
               >
-                🔒 隐私保护：Token仅存储在您的浏览器本地，服务器不存储任何数据
+                🔒 隐私保护：Token 仅保存在当前浏览器，请求时用于服务端权限校验且不会持久化
               </Typography>
             </Box>
           )}

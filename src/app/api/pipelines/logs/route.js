@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
 import { PipelineDB } from '../../../../../lib/pipeline.database';
 import { getCommitDetails } from '../../../../../lib/pipeline.service';
+import {
+  getAuthorizationError,
+  requireRepositoryRead,
+} from '../../../../../lib/codeup.authorization';
 
-function getToken(request) {
-  return request.headers.get('x-yunxiao-token') || process.env.CODEUP_TOKEN;
-}
-
-async function enrichCommitMessages(logs, token) {
+async function enrichCommitMessages(logs, token, tasks) {
   if (!token) return logs;
 
-  const tasks = await PipelineDB.getAllTasks();
   const taskMap = new Map(tasks.map((task) => [String(task.id), task]));
   const groups = new Map();
   logs.filter((log) => log.commit_id && !log.commit_message).forEach((log) => {
@@ -36,23 +35,32 @@ async function enrichCommitMessages(logs, token) {
 
 export async function GET(request) {
   try {
+    const scope = await requireRepositoryRead(request);
+    const tasks = (await PipelineDB.getAllTasks()).filter((task) => (
+      String(task.organization_id) === scope.organizationId
+      && String(task.repository_id) === scope.repositoryId
+    ));
+    const taskIds = tasks.map((task) => task.id);
     const { searchParams } = new URL(request.url);
     const page = Math.max(Number(searchParams.get('page')) || 1, 1);
     const pageSize = Math.min(Math.max(Number(searchParams.get('pageSize')) || 20, 1), 100);
     const taskId = searchParams.get('taskId');
+    if (taskId && !taskIds.some((id) => String(id) === String(taskId))) {
+      return NextResponse.json({ success: false, message: '任务不存在或无权访问' }, { status: 404 });
+    }
     const compact = searchParams.get('compact') === 'true';
     const search = searchParams.get('q') || '';
     const offset = (page - 1) * pageSize;
     const compactResult = compact
-      ? await PipelineDB.getCompactLogs({ taskId, limit: pageSize, offset, search })
+      ? await PipelineDB.getCompactLogs({ taskId, taskIds, limit: pageSize, offset, search })
       : null;
     const [rawLogs, totalCount] = compactResult
       ? [compactResult.logs, compactResult.totalCount]
       : await Promise.all([
-        PipelineDB.getLogs({ taskId, limit: pageSize, offset }),
-        PipelineDB.getLogsCount(taskId),
+        PipelineDB.getLogs({ taskId, taskIds, limit: pageSize, offset }),
+        PipelineDB.getLogsCount(taskId, taskIds),
       ]);
-    const logs = await enrichCommitMessages(rawLogs, getToken(request));
+    const logs = await enrichCommitMessages(rawLogs, scope.token, tasks);
 
     return NextResponse.json({
       success: true,
@@ -66,6 +74,10 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error('[Pipeline Logs] 获取日志失败:', error);
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    const authorizationError = getAuthorizationError(error);
+    return NextResponse.json(
+      { success: false, message: authorizationError?.message || error.message },
+      { status: authorizationError?.status || 500 }
+    );
   }
 }

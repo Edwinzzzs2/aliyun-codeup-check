@@ -4,7 +4,16 @@ import { AutoMergeScheduler } from '../../../../../lib/scheduler';
 // 创建调度器实例
 const scheduler = new AutoMergeScheduler();
 
+function isAuthorized(request) {
+  const cronSecret = process.env.CRON_SECRET;
+  return Boolean(cronSecret)
+    && request.headers.get('authorization') === `Bearer ${cronSecret}`;
+}
+
 export async function GET(request) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ success: false, message: '未授权的 Cron 请求' }, { status: 401 });
+  }
   try {
     console.log('Cron job triggered: checking auto-merge tasks');
     

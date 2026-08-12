@@ -30,6 +30,7 @@ import {
 } from "../../contexts/TokenContext";
 import BranchSelector from "../../components/BranchSelector";
 import TaskManagementTab from "./TaskManagementTab";
+import { codeupFetch } from "../../utils/codeup-fetch";
 
 export default function AutoMergePage() {
   const { token, orgId } = useTokenConfig();
@@ -89,7 +90,7 @@ export default function AutoMergePage() {
   // 获取飞书配置列表
   const fetchFeishuConfigs = async () => {
     try {
-      const response = await fetch("/api/feishu/configs");
+      const response = await codeupFetch("/api/feishu/configs");
       const data = await response.json();
       if (data.success) {
         setFeishuConfigs(data.data || []);
@@ -104,7 +105,7 @@ export default function AutoMergePage() {
     console.log('AutoMergePage: fetchTasks called');
     setLoading(prev => ({ ...prev, data: true }));
     try {
-      const response = await fetch("/api/automerge/tasks");
+      const response = await codeupFetch("/api/automerge/tasks");
       const data = await response.json();
       console.log('AutoMergePage: fetchTasks response:', data);
       if (data.success) {
@@ -178,7 +179,7 @@ export default function AutoMergePage() {
 
       const method = editingTask ? "PUT" : "POST";
 
-      const response = await fetch(url, {
+      const response = await codeupFetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
@@ -210,7 +211,7 @@ export default function AutoMergePage() {
 
     setLoading(prev => ({ ...prev, action: true }));
     try {
-      const response = await fetch(`/api/automerge/tasks?id=${taskId}`, {
+      const response = await codeupFetch(`/api/automerge/tasks?id=${taskId}`, {
         method: "DELETE",
       });
 
@@ -247,7 +248,7 @@ export default function AutoMergePage() {
       console.log('🚀', startMsg);
       addExecutionLog(startMsg, 'info');
       
-      const response = await fetch("/api/automerge/execute", {
+      const response = await codeupFetch("/api/automerge/execute", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -301,7 +302,7 @@ export default function AutoMergePage() {
   const handleToggleTaskStatus = async (taskId, currentEnabled) => {
     setLoading(prev => ({ ...prev, action: true }));
     try {
-      const response = await fetch(`/api/automerge/tasks?id=${taskId}`, {
+      const response = await codeupFetch(`/api/automerge/tasks?id=${taskId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

@@ -5,6 +5,11 @@ import { POST as executeMerge } from '../../codeup/merge/route.js';
 import { POST as compareRequest } from '../../codeup/compare/route.js';
 import { GET as getBranchDetail } from '../../codeup/branch-detail/route.js';
 import { POST as sendFeishuNotify } from '../../feishu/notify/route.js';
+import {
+  getAuthorizationError,
+  getRequestRepositoryScope,
+  requireRepositoryRead,
+} from '../../../../../lib/codeup.authorization';
 
 export async function POST(request) {
   try {
@@ -36,8 +41,14 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // 执行合并
-    const result = await executeAutoMerge(task);
+    const orgId = process.env.CODEUP_ORG_ID;
+    const { token } = await requireRepositoryRead(request, {
+      organization_id: orgId,
+      repository_id: task.repository_id,
+    });
+
+    // 网页手动执行使用用户自己的 Token，后台调度才允许使用服务器 Token。
+    const result = await executeAutoMerge(task, { token, organizationId: orgId });
     
     return NextResponse.json({ 
       success: true, 
@@ -46,16 +57,25 @@ export async function POST(request) {
     });
   } catch (error) {
     console.log('自动合并执行API错误:', error);
+    const authorizationError = getAuthorizationError(error);
     return NextResponse.json({ 
       success: false, 
-      message: '执行失败',
-      error: error.message
-    }, { status: 500 });
+      message: authorizationError?.message || '执行失败',
+    }, { status: authorizationError?.status || 500 });
   }
 }
 
 export async function GET(request) {
   try {
+    const { repositoryId } = getRequestRepositoryScope(request);
+    await requireRepositoryRead(request, {
+      organization_id: process.env.CODEUP_ORG_ID,
+      repository_id: repositoryId,
+    });
+    const repositoryTasks = (await AutoMergeDB.getAllTasks()).filter((task) => (
+      String(task.repository_id) === String(repositoryId)
+    ));
+    const taskNames = repositoryTasks.map((task) => task.name);
     // 获取执行日志
     const { searchParams } = new URL(request.url);
     const logTaskId = searchParams.get('taskId');
@@ -67,8 +87,8 @@ export async function GET(request) {
     
     // 获取日志数据和总数
     const [logs, totalCount] = await Promise.all([
-      AutoMergeDB.getAllLogs(pageSize, offset),
-      AutoMergeDB.getLogsCount()
+      AutoMergeDB.getAllLogs(pageSize, offset, taskNames),
+      AutoMergeDB.getLogsCount(taskNames)
     ]);
     
     // 计算分页信息
@@ -88,16 +108,16 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error('自动合并执行API错误:', error);
+    const authorizationError = getAuthorizationError(error);
     return NextResponse.json({ 
       success: false, 
-      message: '服务器内部错误',
-      error: error.message 
-    }, { status: 500 });
+      message: authorizationError?.message || '服务器内部错误',
+    }, { status: authorizationError?.status || 500 });
   }
 }
 
 // 执行自动合并的核心函数
-export async function executeAutoMerge(task) {
+export async function executeAutoMerge(task, options = {}) {
   const startTime = new Date();
   let sourceBranchInfo = null;
   
@@ -113,8 +133,8 @@ export async function executeAutoMerge(task) {
     }, null, 2));
     
     // 从环境变量获取必要的配置信息
-    const token = process.env['CODEUP_TOKEN'] || process.env['NEXT_PUBLIC_TOKEN'];
-    const orgId = process.env.CODEUP_ORG_ID;
+    const token = options.token || process.env.CODEUP_TOKEN;
+    const orgId = options.organizationId || process.env.CODEUP_ORG_ID;
     
     console.log('🔑 环境变量检查:');
     console.log('  - token存在:', !!token, token ? `(长度: ${token.length})` : '');
@@ -387,7 +407,10 @@ export async function executeAutoMerge(task) {
       const notifyRequest = new Request('internal://api/feishu/notify', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'x-yunxiao-token': token,
+          'x-codeup-organization-id': orgId,
+          'x-codeup-repository-id': String(task.repository_id),
         },
         body: JSON.stringify({
           type: 'auto_merge',
@@ -446,7 +469,10 @@ export async function executeAutoMerge(task) {
       const notifyRequest = new Request('internal://api/feishu/notify', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'x-yunxiao-token': token,
+          'x-codeup-organization-id': orgId,
+          'x-codeup-repository-id': String(task.repository_id),
         },
         body: JSON.stringify({
           type: 'auto_merge',

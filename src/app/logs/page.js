@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Box, LinearProgress } from "@mui/material";
 import ExecutionLogsTab from "../automerge/ExecutionLogsTab";
+import { codeupFetch } from "../../utils/codeup-fetch";
 
 export default function ExecutionLogsPage() {
   const [logs, setLogs] = useState([]);
@@ -19,7 +20,7 @@ export default function ExecutionLogsPage() {
   const fetchLogs = useCallback(async (page = 1, pageSize = 20) => {
     setLoading({ data: true });
     try {
-      const response = await fetch(
+      const response = await codeupFetch(
         `/api/automerge/execute?page=${page}&pageSize=${pageSize}`
       );
       const data = await response.json();

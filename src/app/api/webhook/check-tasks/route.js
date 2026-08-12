@@ -4,13 +4,18 @@ import { AutoMergeScheduler } from '../../../../../lib/scheduler';
 // Webhook端点，用于外部触发任务检查
 export async function POST(request) {
   try {
-    // 可选：添加简单的验证
     const body = await request.json().catch(() => ({}));
     const { secret } = body;
     
-    // 如果设置了WEBHOOK_SECRET环境变量，则进行验证
     const expectedSecret = process.env.WEBHOOK_SECRET;
-    if (expectedSecret && secret !== expectedSecret) {
+    // Webhook 未配置密钥时直接关闭，防止部署疏漏变成匿名任务触发入口。
+    if (!expectedSecret) {
+      return NextResponse.json(
+        { success: false, message: 'Webhook 未启用' },
+        { status: 503 }
+      );
+    }
+    if (secret !== expectedSecret) {
       return NextResponse.json(
         { success: false, message: '无效的webhook密钥' },
         { status: 401 }
@@ -48,9 +53,14 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const secret = searchParams.get('secret');
     
-    // 如果设置了WEBHOOK_SECRET环境变量，则进行验证
     const expectedSecret = process.env.WEBHOOK_SECRET;
-    if (expectedSecret && secret !== expectedSecret) {
+    if (!expectedSecret) {
+      return NextResponse.json(
+        { success: false, message: 'Webhook 未启用' },
+        { status: 503 }
+      );
+    }
+    if (secret !== expectedSecret) {
       return NextResponse.json(
         { success: false, message: '无效的webhook密钥' },
         { status: 401 }

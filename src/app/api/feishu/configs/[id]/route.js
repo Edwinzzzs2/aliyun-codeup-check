@@ -1,9 +1,11 @@
 import { AutoMergeDB } from '../../../../../../lib/database.supabase';
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthorizationError, requireRepositoryRead } from '../../../../../../lib/codeup.authorization';
 
 // 获取特定飞书通知配置
 export async function GET(request, { params }) {
   try {
+    await requireRepositoryRead(request);
     const { id } = await params;
     
     if (!id) {
@@ -28,17 +30,18 @@ export async function GET(request, { params }) {
     });
   } catch (error) {
     console.error('获取飞书配置错误:', error);
+    const authorizationError = getAuthorizationError(error);
     return NextResponse.json({ 
       success: false, 
-      message: '服务器内部错误',
-      error: error.message 
-    }, { status: 500 });
+      message: authorizationError?.message || '服务器内部错误',
+    }, { status: authorizationError?.status || 500 });
   }
 }
 
 // 更新特定飞书通知配置
 export async function PUT(request, { params }) {
   try {
+    await requireRepositoryRead(request);
     const { id } = await params;
     const body = await request.json();
     
@@ -97,17 +100,18 @@ export async function PUT(request, { params }) {
     });
   } catch (error) {
     console.error('更新飞书配置错误:', error);
+    const authorizationError = getAuthorizationError(error);
     return NextResponse.json({ 
       success: false, 
-      message: '服务器内部错误',
-      error: error.message 
-    }, { status: 500 });
+      message: authorizationError?.message || '服务器内部错误',
+    }, { status: authorizationError?.status || 500 });
   }
 }
 
 // 删除特定飞书通知配置
 export async function DELETE(request, { params }) {
   try {
+    await requireRepositoryRead(request);
     const { id } = await params;
     
     if (!id) {
@@ -132,10 +136,10 @@ export async function DELETE(request, { params }) {
     });
   } catch (error) {
     console.error('删除飞书配置错误:', error);
+    const authorizationError = getAuthorizationError(error);
     return NextResponse.json({ 
       success: false, 
-      message: '服务器内部错误',
-      error: error.message 
-    }, { status: 500 });
+      message: authorizationError?.message || '服务器内部错误',
+    }, { status: authorizationError?.status || 500 });
   }
 }

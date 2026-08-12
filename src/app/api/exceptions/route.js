@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { AutoMergeDB } from '../../../../lib/database.supabase';
+import { getAuthorizationError, requireRepositoryRead } from '../../../../lib/codeup.authorization';
 
 export async function GET(request) {
   try {
+    await requireRepositoryRead(request);
     const { searchParams } = new URL(request.url);
     const page = Math.max(parseInt(searchParams.get('page')) || 1, 1);
     const pageSize = Math.min(
@@ -28,10 +30,10 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error('[异常日志 API] 查询失败:', error);
+    const authorizationError = getAuthorizationError(error);
     return NextResponse.json({
       success: false,
-      message: '查询异常日志失败',
-      error: error.message,
-    }, { status: 500 });
+      message: authorizationError?.message || '查询异常日志失败',
+    }, { status: authorizationError?.status || 500 });
   }
 }
