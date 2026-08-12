@@ -12,6 +12,24 @@ function isActiveRun(run) {
   return ACTIVE_RUN_STATUSES.has(String(run?.status || '').toUpperCase());
 }
 
+function hasActiveSteps(run) {
+  return Array.isArray(run?.steps) && run.steps.some((step) => (
+    ACTIVE_RUN_STATUSES.has(String(step?.status || '').toUpperCase())
+  ));
+}
+
+function needsHistoricalStepsBackfill(log, run) {
+  if (!run || isActiveRun(run) || hasActiveSteps(run)) return false;
+  // null 代表功能上线前的历史数据尚未补齐；空数组代表已经查询过但接口没有返回步骤。
+  return Object.prototype.hasOwnProperty.call(log, 'pipeline_steps')
+    && log.pipeline_steps === null;
+}
+
+function needsRunRefresh(log, run) {
+  // 云效的总体状态可能先于阶段状态结束；有活动节点时继续同步，直到所有节点收敛。
+  return isActiveRun(run) || hasActiveSteps(run) || needsHistoricalStepsBackfill(log, run);
+}
+
 function cachedRun(log) {
   if (!log?.pipeline_status) return null;
   return {
@@ -65,7 +83,7 @@ export async function GET(request) {
           ? runKey(task.organization_id, pipelineId, log.pipeline_run_id)
           : null;
         const run = cachedRun(log);
-        if (isActiveRun(run)) {
+        if (needsRunRefresh(log, run)) {
           addTarget(task, pipelineId, log.pipeline_run_id, log.id);
         }
         return { log, task, pipelineId, key, run };
@@ -82,7 +100,7 @@ export async function GET(request) {
         return { task, key, run: matchingLog?.run || null };
       });
 
-    // 只有数据库明确记录为活动态的实例才查询云效；终态和未知历史状态直接读取本地缓存。
+    // 活动态及未收敛节点持续查询；完整终态落库后始终读取本地缓存。
     const targetList = [...targets.values()];
     const settledRuns = await Promise.allSettled(
       targetList.map((target) => getPipelineRun(target.task, scope.token))

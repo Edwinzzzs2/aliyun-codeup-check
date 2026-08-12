@@ -83,6 +83,26 @@ const RUN_STATUS_COLORS = {
   WAITING: "#f59e0b",
 };
 
+const METRIC_TILE_SX = {
+  minWidth: 0,
+  minHeight: 118,
+  px: 1.5,
+  py: 1.25,
+  bgcolor: "#f2f7f8",
+  border: "1px solid #e3edef",
+  borderRadius: 2.25,
+};
+
+const RUN_START_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
+  timeZone: "Asia/Shanghai",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+
 function shortCommit(commitId) {
   return commitId ? String(commitId).slice(0, 8) : "—";
 }
@@ -90,6 +110,17 @@ function shortCommit(commitId) {
 function formatTime(value) {
   if (!value) return "—";
   return String(value).replace("T", " ").replace(/\.\d+Z?$/, "");
+}
+
+function formatRunStartTime(value) {
+  const timestamp = toTimestamp(value);
+  if (!timestamp) return "—";
+  const parts = Object.fromEntries(
+    RUN_START_TIME_FORMATTER.formatToParts(timestamp)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value])
+  );
+  return `${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
 }
 
 function toTimestamp(value) {
@@ -137,21 +168,24 @@ function getCommitUrl(task, commitId) {
   return `${task.repository_url.replace(/\.git$/i, "")}/commit/${encodeURIComponent(commitId)}`;
 }
 
-function PipelineRunStatus({ run, now }) {
+// 任务卡展示阶段明细，日志只复用总体结果，避免同一组阶段在历史列表里反复铺开。
+function PipelineRunSummary({ run, now }) {
   const meta = RUN_STATUS_META[run?.status] || (run?.status
     ? { label: run.status, color: "default" }
     : null);
   if (!meta) return null;
 
   return (
-    <Stack spacing={0.6} sx={{ minWidth: 0 }}>
-      <Stack direction="row" alignItems="center" spacing={0.7} sx={{ minWidth: 0 }}>
-        <Chip size="small" label={meta.label} color={meta.color} sx={{ height: 20, "& .MuiChip-label": { px: 0.8 } }} />
-        <Typography variant="caption" color="text.secondary" noWrap>
-          {ACTIVE_RUN_STATUSES.has(run.status) ? "已运行" : "总耗时"} {formatRunDuration(run, now)}
-        </Typography>
-      </Stack>
-      <PipelineRunSteps steps={run.steps} />
+    <Stack direction="row" alignItems="center" spacing={0.7} sx={{ minWidth: 0 }}>
+      <Chip
+        size="small"
+        label={meta.label}
+        color={meta.color}
+        sx={{ height: 22, fontWeight: 700, "& .MuiChip-label": { px: 0.9 } }}
+      />
+      <Typography variant="caption" color="text.secondary" noWrap>
+        {ACTIVE_RUN_STATUSES.has(run.status) ? "已运行" : "总耗时"} {formatRunDuration(run, now)}
+      </Typography>
     </Stack>
   );
 }
@@ -159,26 +193,78 @@ function PipelineRunStatus({ run, now }) {
 function PipelineRunSteps({ steps }) {
   if (!Array.isArray(steps) || steps.length === 0) return null;
 
+  const completedCount = steps.filter((step) => String(step?.status).toUpperCase() === "SUCCESS").length;
+
   return (
-    <Box sx={{ display: "flex", alignItems: "flex-end", minWidth: 0, maxWidth: "100%", overflowX: "auto", pb: 0.25 }}>
-      {steps.map((step, index) => {
-        const status = String(step?.status || "WAITING").toUpperCase();
-        const meta = RUN_STATUS_META[status] || { label: status, color: "default" };
-        const color = RUN_STATUS_COLORS[status] || "#cbd5e1";
-        return (
-          <Box key={step?.id || `${step?.name}-${index}`} sx={{ display: "flex", alignItems: "flex-end", flexShrink: 0 }}>
-            <Stack alignItems="center" spacing={0.3} sx={{ minWidth: 42 }}>
-              <Typography variant="caption" noWrap sx={{ maxWidth: 90, color: "text.secondary" }}>
-                {step?.name || "未命名"}
-              </Typography>
-              <Tooltip title={meta.label} placement="bottom">
-                <Box sx={{ width: 9, height: 9, borderRadius: "50%", bgcolor: color, boxShadow: `0 0 0 2px ${color}22` }} />
+    <Box sx={{ minWidth: 0 }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.65 }}>
+        <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>运行阶段</Typography>
+        <Typography variant="caption" sx={{ color: "text.disabled", fontFamily: "monospace" }}>
+          {completedCount}/{steps.length}
+        </Typography>
+      </Stack>
+      <Box sx={{ overflowX: "auto", overflowY: "hidden", pb: 0.35 }}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: `repeat(${steps.length}, minmax(82px, 1fr))`,
+            minWidth: Math.max(steps.length * 82, 260),
+          }}
+        >
+          {steps.map((step, index) => {
+            const status = String(step?.status || "WAITING").toUpperCase();
+            const nextStatus = String(steps[index + 1]?.status || "WAITING").toUpperCase();
+            const meta = RUN_STATUS_META[status] || { label: status, color: "default" };
+            const color = RUN_STATUS_COLORS[status] || "#cbd5e1";
+            // 连线使用下一阶段的颜色，让执行进度从左到右自然延伸到当前节点。
+            const connectorColor = RUN_STATUS_COLORS[nextStatus] || "#d6e0e4";
+            return (
+              <Tooltip key={step?.id || `${step?.name}-${index}`} title={`${step?.name || "未命名"} · ${meta.label}`} arrow>
+                <Box sx={{ minWidth: 0, textAlign: "center" }}>
+                  <Typography
+                    variant="caption"
+                    noWrap
+                    sx={{ display: "block", px: 0.5, color: "text.secondary", lineHeight: 1.5 }}
+                  >
+                    {step?.name || "未命名"}
+                  </Typography>
+                  <Box sx={{ position: "relative", height: 18, mt: 0.25 }}>
+                    {index < steps.length - 1 && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          zIndex: 0,
+                          top: 8,
+                          left: "50%",
+                          width: "100%",
+                          height: 2,
+                          bgcolor: connectorColor,
+                          opacity: nextStatus === "WAITING" ? 0.45 : 0.7,
+                        }}
+                      />
+                    )}
+                    <Box
+                      sx={{
+                        position: "relative",
+                        zIndex: 1,
+                        width: 10,
+                        height: 10,
+                        mx: "auto",
+                        mt: "4px",
+                        borderRadius: "50%",
+                        bgcolor: status === "WAITING" ? "#f8fbfc" : color,
+                        border: "2px solid",
+                        borderColor: color,
+                        boxShadow: `0 0 0 3px #f2f7f8${status === "RUNNING" ? `, 0 0 0 6px ${color}1f` : ""}`,
+                      }}
+                    />
+                  </Box>
+                </Box>
               </Tooltip>
-            </Stack>
-            {index < steps.length - 1 && <Box sx={{ width: 22, height: 1, bgcolor: "divider", mb: "4px", mx: 0.25 }} />}
-          </Box>
-        );
-      })}
+            );
+          })}
+        </Box>
+      </Box>
     </Box>
   );
 }
@@ -191,9 +277,21 @@ function PipelineRunMetric({ task, runState, now }) {
     : `https://flow.aliyun.com/pipelines/${encodeURIComponent(task.pipeline_id)}/history`;
 
   return (
-    <Box sx={{ bgcolor: "#eef5f7", borderRadius: 2, px: 1.3, py: 1.1, minWidth: 0 }}>
-      <Typography variant="caption" color="text.secondary">最近运行</Typography>
-      <Stack direction="row" alignItems="center" spacing={0.5}>
+    <Box sx={{ ...METRIC_TILE_SX, bgcolor: "#edf6f8", borderColor: "#d9e9ed" }}>
+      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" gap={1}>
+        <Typography variant="caption" color="text.secondary">最近运行</Typography>
+        {run && (
+          <Stack direction="row" spacing={1.25} sx={{ color: "text.secondary" }}>
+            <Typography variant="caption" noWrap>
+              开始 {formatRunStartTime(run.startTime)}
+            </Typography>
+            <Typography variant="caption" noWrap>
+              {ACTIVE_RUN_STATUSES.has(run.status) ? "已运行" : "总耗时"} {formatRunDuration(run, now)}
+            </Typography>
+          </Stack>
+        )}
+      </Stack>
+      <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.1 }}>
         <Typography
           component="a"
           href={runUrl}
@@ -206,7 +304,13 @@ function PipelineRunMetric({ task, runState, now }) {
         </Typography>
         <OpenInNew sx={{ fontSize: 14, color: "text.secondary", flexShrink: 0 }} />
       </Stack>
-      {run && <Box sx={{ mt: 0.5 }}><PipelineRunStatus run={run} now={now} /></Box>}
+      {run && (
+        <Box sx={{ mt: 0.8 }}>
+          {Array.isArray(run.steps) && run.steps.length > 0
+            ? <PipelineRunSteps steps={run.steps} />
+            : <PipelineRunSummary run={run} now={now} />}
+        </Box>
+      )}
       {runState?.error && (
         <Tooltip title={runState.error}>
           <Typography variant="caption" color="error.main" noWrap sx={{ display: "block", mt: 0.5 }}>状态获取失败</Typography>
@@ -267,7 +371,7 @@ function PipelineLogRunCell({ log, runState, now }) {
       >
         运行 #{runId} <OpenInNew sx={{ fontSize: 12, verticalAlign: "-1px" }} />
       </Typography>
-      {run ? <PipelineRunStatus run={run} now={now} /> : <StatusChip status={log.status} />}
+      {run ? <PipelineRunSummary run={run} now={now} /> : <StatusChip status={log.status} />}
       {runState?.error && <Typography variant="caption" color="error.main">{runState.error}</Typography>}
     </Stack>
   );
@@ -649,13 +753,23 @@ export default function PipelineManagementPage() {
                 <Switch checked={Boolean(task.enabled)} onChange={() => toggleTask(task)} disabled={Boolean(actionId)} inputProps={{ "aria-label": `${task.name}启用状态` }} />
               </Stack>
 
-              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1, my: 2 }}>
-                <Box sx={{ bgcolor: "#eef5f7", borderRadius: 2, px: 1.3, py: 1.1 }}>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: {
+                    xs: "1fr",
+                    md: "minmax(130px, 0.8fr) minmax(300px, 1.7fr) minmax(120px, 0.7fr)",
+                  },
+                  gap: 1.15,
+                  my: 2,
+                }}
+              >
+                <Box sx={METRIC_TILE_SX}>
                   <Typography variant="caption" color="text.secondary">当前提交</Typography>
                   <Typography sx={{ fontFamily: "monospace", fontWeight: 800, mt: 0.2 }} noWrap>{shortCommit(task.last_commit_id)}</Typography>
                 </Box>
                 <PipelineRunMetric task={task} runState={runStates[String(task.id)]} now={now} />
-                <Box sx={{ bgcolor: "#eef5f7", borderRadius: 2, px: 1.3, py: 1.1 }}>
+                <Box sx={METRIC_TILE_SX}>
                   <Typography variant="caption" color="text.secondary">监听频率</Typography>
                   <Typography sx={{ fontFamily: "monospace", fontWeight: 800, mt: 0.2 }} noWrap>{task.interval_minutes} 分钟</Typography>
                 </Box>
