@@ -9,6 +9,7 @@
 - 📊 **可视化界面** - 直观的 Web 界面展示检测结果和任务状态
 - 🔔 **飞书通知** - 集成飞书机器人，支持任务状态通知
 - 🕐 **定时任务** - 支持 Webhook 和 Cron 定时触发任务执行
+- ⚡ **流水线监听** - 定时比较 Codeup 分支提交，发现新提交后通过 Token 自动触发云效 Flow
 - 🎨 **现代化设计** - 基于 Material-UI 的美观界面
 - 🌙 **主题切换** - 支持明暗主题切换
 - 📱 **响应式设计** - 适配各种设备屏幕
@@ -201,6 +202,14 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=你的数据库tokenKey
 
 代理变量仅供服务端使用，不要添加 `NEXT_PUBLIC_` 前缀。Vercel 修改环境变量后需要重新部署。
 
+流水线监听复用 `CODEUP_TOKEN`，令牌还需授予“流水线运行实例读写”权限。可配置 `CRON_SECRET` 保护 `/api/cron/check-pipelines`；任务创建时会记录当前提交作为基线，只有之后提交 ID 发生变化才自动触发。
+
+已有数据库升级时，请先在 Supabase SQL Editor 执行仓库根目录的 `pipeline-schema.sql`；全新数据库仍可直接执行 `supabase-schema.sql`。
+
+Vercel 部署通过 `vercel.json` 每分钟调用 Cron API；Docker/PM2 常驻部署设置 `ENABLE_INTERNAL_PIPELINE_SCHEDULER=true` 后，由服务进程内部每分钟扫描。不要在同一部署中同时启用两种调度方式。
+
+本地开发也需要在 `.env.local` 配置 `ENABLE_INTERNAL_PIPELINE_SCHEDULER=true`，修改后重启开发服务；页面每 15 秒静默刷新任务和日志。
+
 ## 📖 功能使用说明
 
 ### 分支检测 (/check)
@@ -224,6 +233,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=你的数据库tokenKey
 - 配置飞书机器人
 - 设置通知规则
 - 测试通知功能
+
+### 流水线管理 (/pipelines)
+- 配置流水线 ID、Codeup 仓库 Git 地址、监听分支和检查间隔
+- 支持手动检测变更与忽略变更判断的“立即运行”
+- 查看最近提交、Flow 运行 ID、下次检查时间和触发日志
 
 ### Webhook测试 (/webhook-test)
 - 测试Webhook触发
@@ -252,6 +266,12 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=你的数据库tokenKey
 ### Webhook API
 - `POST /api/webhook/check-tasks` - Webhook触发任务检查
 - `GET /api/cron/check-tasks` - 定时任务触发
+
+### 流水线 API
+- `GET/POST/PUT/DELETE /api/pipelines/tasks` - 管理流水线监听任务
+- `POST /api/pipelines/execute` - 手动检测或立即触发流水线
+- `GET /api/pipelines/logs` - 查询监听与触发日志
+- `GET /api/cron/check-pipelines` - 定时扫描到期任务
 
 ### PM2 配置
 

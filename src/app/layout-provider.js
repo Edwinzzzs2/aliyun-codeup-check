@@ -42,6 +42,7 @@ import {
   ExpandMore,
   Notifications,
   History,
+  AccountTree,
 } from "@mui/icons-material";
 import { TokenProvider, useToken, useTokenDialog, useTokenMessage, useGlobalLoading, useRepoChange, useTokenConfigDialog } from "../contexts/TokenContext";
 import BuildTime from "../components/BuildTime";
@@ -64,6 +65,11 @@ const menuItems = [
     text: "执行日志",
     icon: <History />,
     path: "/logs",
+  },
+  {
+    text: "流水线管理",
+    icon: <AccountTree />,
+    path: "/pipelines",
   },
   {
     text: "飞书通知",
@@ -564,7 +570,8 @@ function TokenConfigDialog() {
               <Typography variant="body2" sx={{ color: "#666", mb: 1 }}>
                 <strong>步骤 2:</strong>{" "}
                 创建新的个人访问令牌，并为代码管理分配
-                <strong>最低只读权限</strong>
+                <strong>只读权限</strong>；如需使用流水线管理，还要为
+                <strong>流水线运行实例分配读写权限</strong>
               </Typography>
               <Typography variant="body2" sx={{ color: "#666", mb: 1 }}>
                 <strong>步骤 3:</strong> 复制生成的Token并粘贴到下方输入框中

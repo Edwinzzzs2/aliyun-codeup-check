@@ -5,12 +5,19 @@
     },
     "src/app/api/webhook/check-tasks/route.js": {
       "maxDuration": 60
+    },
+    "src/app/api/cron/check-pipelines/route.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
     {
       "path": "/api/cron/check-tasks",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/check-pipelines",
+      "schedule": "* * * * *"
     }
   ]
 }
