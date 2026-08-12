@@ -309,7 +309,7 @@ export default function PipelineManagementPage() {
     try {
       const [taskResult, logResult] = await Promise.all([
         requestJson("/api/pipelines/tasks"),
-        requestJson("/api/pipelines/logs?pageSize=30"),
+        requestJson("/api/pipelines/logs?compact=true&pageSize=50"),
       ]);
       setTasks(taskResult.data || []);
       setLogs(logResult.data || []);
@@ -599,7 +599,12 @@ export default function PipelineManagementPage() {
       <Paper variant="outlined" sx={{ mt: 2.5, borderRadius: 3, overflow: "hidden" }}>
         <Box sx={{ px: 2.5, py: 2, display: "flex", alignItems: "center", gap: 1 }}>
           <CheckCircleOutline color="primary" />
-          <Typography variant="h6" fontWeight={800}>最近执行记录</Typography>
+          <Box>
+            <Typography variant="h6" fontWeight={800}>最近执行记录</Typography>
+            <Typography variant="caption" color="text.secondary">
+              每个任务仅展示最新自动检测，已触发的流水线历史完整保留
+            </Typography>
+          </Box>
         </Box>
         <TableContainer>
           <Table size="small">

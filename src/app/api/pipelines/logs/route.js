@@ -40,11 +40,14 @@ export async function GET(request) {
     const page = Math.max(Number(searchParams.get('page')) || 1, 1);
     const pageSize = Math.min(Math.max(Number(searchParams.get('pageSize')) || 20, 1), 100);
     const taskId = searchParams.get('taskId');
+    const compact = searchParams.get('compact') === 'true';
     const offset = (page - 1) * pageSize;
-    const [rawLogs, totalCount] = await Promise.all([
-      PipelineDB.getLogs({ taskId, limit: pageSize, offset }),
-      PipelineDB.getLogsCount(taskId),
-    ]);
+    const [rawLogs, totalCount] = compact
+      ? [await PipelineDB.getCompactLogs({ taskId, historyLimit: pageSize }), null]
+      : await Promise.all([
+        PipelineDB.getLogs({ taskId, limit: pageSize, offset }),
+        PipelineDB.getLogsCount(taskId),
+      ]);
     const logs = await enrichCommitMessages(rawLogs, getToken(request));
 
     return NextResponse.json({
@@ -53,8 +56,8 @@ export async function GET(request) {
       pagination: {
         page,
         pageSize,
-        totalCount,
-        totalPages: Math.ceil(totalCount / pageSize),
+        totalCount: totalCount ?? logs.length,
+        totalPages: compact ? 1 : Math.ceil(totalCount / pageSize),
       },
     });
   } catch (error) {
