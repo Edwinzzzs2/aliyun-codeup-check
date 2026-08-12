@@ -195,7 +195,8 @@ function LayoutContent({ children }) {
         display: "flex",
         flexDirection: "column",
         minHeight: "100dvh",
-        height: { md: "100dvh" },
+        height: "100dvh",
+        overflow: "hidden",
       }}
     >
       <AppBar
@@ -326,7 +327,7 @@ function LayoutContent({ children }) {
           flexGrow: 1,
           minHeight: 0,
           mt: { xs: "112px", md: 8 },
-          pb: { xs: "calc(64px + env(safe-area-inset-bottom))", md: 0 },
+          height: { xs: "calc(100dvh - 112px)", md: "calc(100dvh - 64px)" },
         }}
       >
         {/* 左侧导航栏 */}
@@ -390,8 +391,11 @@ function LayoutContent({ children }) {
           sx={{
             minWidth: 0,
             flexGrow: 1,
-            height: { md: "calc(100dvh - 64px)" },
-            overflow: { xs: "visible", md: "hidden" },
+            height: "100%",
+            overflowX: "hidden",
+            overflowY: { xs: "auto", md: "hidden" },
+            WebkitOverflowScrolling: "touch",
+            touchAction: { xs: "pan-y", md: "auto" },
             display: "flex",
             flexDirection: "column",
           }}
@@ -402,6 +406,10 @@ function LayoutContent({ children }) {
               minWidth: 0,
               overflow: { xs: "visible", md: "hidden" },
               p: { xs: 1.25, sm: 2, md: 3 },
+              pb: {
+                xs: "calc(80px + env(safe-area-inset-bottom))",
+                md: 3,
+              },
               backgroundColor: "#f5f7fb",
             }}
           >

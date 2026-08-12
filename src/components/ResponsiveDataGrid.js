@@ -79,7 +79,8 @@ function MobileDataCards({
   localeText = {},
 }) {
   const visibleColumns = columns.filter(
-    (column) => !column.hide && column.field !== "__check__"
+    (column) =>
+      !column.hide && !column.hideOnMobile && column.field !== "__check__"
   );
   const primaryColumn = visibleColumns[0];
   const detailColumns = visibleColumns.slice(1);
@@ -113,17 +114,13 @@ function MobileDataCards({
     <Box
       sx={{
         minHeight: 0,
-        height: "100%",
-        overflowY: "auto",
-        overscrollBehavior: "contain",
+        height: "auto",
+        overflow: "visible",
         pb: 1,
       }}
     >
       <Box
         sx={{
-          position: "sticky",
-          top: 0,
-          zIndex: 2,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -271,35 +268,55 @@ function MobileDataCards({
                       pt: 1.5,
                     }}
                   >
-                    {detailColumns.map((column) => (
-                      <React.Fragment key={column.field}>
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ pt: 0.2 }}
-                        >
-                          {column.headerName || column.field}
-                        </Typography>
-                        <Box
-                          sx={{
-                            minWidth: 0,
-                            fontSize: 14,
-                            color: "text.primary",
-                            overflowWrap: "anywhere",
-                            "& .MuiTypography-root": {
-                              whiteSpace: "normal",
-                              overflow: "visible",
-                              textOverflow: "clip",
-                            },
-                            "& .MuiButton-root": {
-                              minHeight: 40,
-                            },
-                          }}
-                        >
-                          {renderCell(row, column, id)}
-                        </Box>
-                      </React.Fragment>
-                    ))}
+                    {detailColumns.map((column) => {
+                      const isActionColumn = column.field === "actions";
+
+                      return (
+                        <React.Fragment key={column.field}>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{
+                              pt: 0.2,
+                              ...(isActionColumn && {
+                                gridColumn: "1 / -1",
+                                pt: 1,
+                                borderTop:
+                                  "1px solid rgba(31, 41, 55, 0.08)",
+                              }),
+                            }}
+                          >
+                            {column.headerName || column.field}
+                          </Typography>
+                          <Box
+                            sx={{
+                              minWidth: 0,
+                              ...(isActionColumn && {
+                                gridColumn: "1 / -1",
+                                "& > .MuiBox-root": {
+                                  width: "100%",
+                                  justifyContent: "stretch",
+                                },
+                              }),
+                              fontSize: 14,
+                              color: "text.primary",
+                              overflowWrap: "anywhere",
+                              "& .MuiTypography-root": {
+                                whiteSpace: "normal",
+                                overflow: "visible",
+                                textOverflow: "clip",
+                              },
+                              "& .MuiButton-root": {
+                                minHeight: 40,
+                                ...(isActionColumn && { flex: 1 }),
+                              },
+                            }}
+                          >
+                            {renderCell(row, column, id)}
+                          </Box>
+                        </React.Fragment>
+                      );
+                    })}
                   </Box>
                 )}
               </Box>

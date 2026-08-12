@@ -437,6 +437,7 @@ export default function MergeRequest() {
     <Box
       sx={{
         minHeight: { xs: "auto", md: "100%" },
+        pb: { xs: 1, md: 0 },
       }}
     >
       <Box sx={{ width: "100%", height: "4px" }}>
@@ -449,11 +450,11 @@ export default function MergeRequest() {
           alignItems: "center",
           justifyContent: "space-between",
           flexWrap: "wrap",
-          gap: 2,
-          p: 2,
+          gap: { xs: 1.5, sm: 2 },
+          p: { xs: 1.5, sm: 2 },
           backgroundColor: "rgba(255, 255, 255, 0.95)",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-          borderRadius: 2,
+          borderRadius: { xs: 2.5, sm: 2 },
           border: "1px solid rgba(255,255,255,0.3)",
           backdropFilter: "blur(10px)",
         }}
@@ -461,13 +462,19 @@ export default function MergeRequest() {
         <Box
           display="flex"
           alignItems="center"
-          gap={2}
+          gap={{ xs: 1.5, sm: 2 }}
           flexWrap="wrap"
           flex={1}
+          sx={{ minWidth: 0, width: { xs: "100%", sm: "auto" } }}
         >
           <Typography
             variant="subtitle2"
-            sx={{ minWidth: "auto", fontWeight: "bold" }}
+            sx={{
+              width: { xs: "100%", sm: "auto" },
+              minWidth: "auto",
+              fontWeight: "bold",
+              color: "text.secondary",
+            }}
           >
             合并请求：
           </Typography>
@@ -507,7 +514,7 @@ export default function MergeRequest() {
         <Box
           display="flex"
           alignItems="center"
-          gap={2}
+          gap={1}
           flexWrap="wrap"
           justifyContent="flex-end"
           sx={{ width: { xs: "100%", sm: "auto" } }}
@@ -515,7 +522,7 @@ export default function MergeRequest() {
           <Button
             variant="outlined"
             onClick={handleOpenCompareDialog}
-            sx={{ minWidth: 80, flex: { xs: 1, sm: "initial" } }}
+            sx={{ minWidth: 80, minHeight: 42, flex: { xs: 1, sm: "initial" } }}
             disabled={
               !branchState.sourceBranch ||
               !branchState.targetBranch ||
@@ -529,6 +536,7 @@ export default function MergeRequest() {
             onClick={handleCreateMergeRequest}
             sx={{
               minWidth: 100,
+              minHeight: 42,
               flex: { xs: 1, sm: "initial" },
               opacity: canCreateMerge ? 1 : 0.6,
               backgroundColor: canCreateMerge ? undefined : "grey.400",
@@ -555,11 +563,11 @@ export default function MergeRequest() {
       <Paper
         sx={{
           width: "100%",
-          mt: 3,
-          p: 2,
+          mt: { xs: 1.5, sm: 3 },
+          p: { xs: 1.25, sm: 2 },
           backgroundColor: "rgba(255, 255, 255, 0.95)",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-          borderRadius: 2,
+          borderRadius: { xs: 2.5, sm: 2 },
           border: "1px solid rgba(255,255,255,0.3)",
           backdropFilter: "blur(10px)",
           height: { xs: "auto", md: "calc(100dvh - 220px)" },
@@ -573,10 +581,13 @@ export default function MergeRequest() {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            mb: 2,
+            mb: { xs: 1, sm: 2 },
           }}
         >
-          <Typography variant="h6" sx={{ fontWeight: "bold" }}>
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: "bold", fontSize: { xs: "1.05rem", sm: "1.25rem" } }}
+          >
             合并请求列表
           </Typography>
           <IconButton
@@ -714,6 +725,7 @@ export default function MergeRequest() {
                 field: "author",
                 headerName: "创建者",
                 minWidth: 100,
+                hideOnMobile: true,
               },
               {
                 field: "updatedAt",
@@ -738,6 +750,7 @@ export default function MergeRequest() {
                 headerAlign: "center",
                 align: "center",
                 minWidth: 100,
+                hideOnMobile: true,
                 renderCell: (params) => (
                   <a
                     href={params.value}
@@ -815,6 +828,7 @@ export default function MergeRequest() {
                       sx={{
                         display: "flex",
                         gap: 0.5,
+                        flexWrap: "wrap",
                         alignItems: "center",
                         justifyContent: "center",
                         height: "100%",
