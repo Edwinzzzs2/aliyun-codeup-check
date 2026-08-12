@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -25,6 +25,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Tooltip,
@@ -261,6 +262,12 @@ export default function PipelineManagementPage() {
   const { showMessage } = useTokenMessage();
   const [tasks, setTasks] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [logSearch, setLogSearch] = useState("");
+  const [logSearchQuery, setLogSearchQuery] = useState("");
+  const [logPage, setLogPage] = useState(0);
+  const [logPageSize, setLogPageSize] = useState(10);
+  const [logTotalCount, setLogTotalCount] = useState(0);
+  const [logsLoading, setLogsLoading] = useState(false);
   const [runStates, setRunStates] = useState({});
   const [logRunStates, setLogRunStates] = useState({});
   const [now, setNow] = useState(() => Date.now());
@@ -271,6 +278,7 @@ export default function PipelineManagementPage() {
   const [editingTask, setEditingTask] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [pageError, setPageError] = useState("");
+  const hasLoadedData = useRef(false);
 
   const repositories = useMemo(() => {
     if (typeof window === "undefined") return [];
@@ -305,21 +313,30 @@ export default function PipelineManagementPage() {
     // 首次加载显示内容骨架；后续刷新保留已有数据，只在操作入口反馈进度。
     if (mode === "initial") setInitialLoading(true);
     if (mode === "refresh") setRefreshing(true);
+    if (mode === "table") setLogsLoading(true);
     setPageError("");
     try {
+      const logParams = new URLSearchParams({
+        compact: "true",
+        page: String(logPage + 1),
+        pageSize: String(logPageSize),
+      });
+      if (logSearchQuery) logParams.set("q", logSearchQuery);
       const [taskResult, logResult] = await Promise.all([
         requestJson("/api/pipelines/tasks"),
-        requestJson("/api/pipelines/logs?compact=true&pageSize=50"),
+        requestJson(`/api/pipelines/logs?${logParams.toString()}`),
       ]);
       setTasks(taskResult.data || []);
       setLogs(logResult.data || []);
+      setLogTotalCount(logResult.pagination?.totalCount || 0);
     } catch (error) {
       setPageError(error.message);
     } finally {
       if (mode === "initial") setInitialLoading(false);
       if (mode === "refresh") setRefreshing(false);
+      if (mode === "table") setLogsLoading(false);
     }
-  }, [requestJson]);
+  }, [logPage, logPageSize, logSearchQuery, requestJson]);
 
   const loadRunStates = useCallback(async () => {
     try {
@@ -338,9 +355,19 @@ export default function PipelineManagementPage() {
   }, [requestJson]);
 
   useEffect(() => {
-    loadData("initial");
+    const mode = hasLoadedData.current ? "table" : "initial";
+    hasLoadedData.current = true;
+    loadData(mode);
     loadRunStates();
   }, [loadData, loadRunStates]);
+
+  useEffect(() => {
+    const searchTimer = window.setTimeout(() => {
+      setLogPage(0);
+      setLogSearchQuery(logSearch.trim());
+    }, 300);
+    return () => window.clearTimeout(searchTimer);
+  }, [logSearch]);
 
   useEffect(() => {
     // 运行中耗时在前端逐秒更新，云效状态则低频静默同步，避免频繁请求和页面闪烁。
@@ -597,14 +624,23 @@ export default function PipelineManagementPage() {
       )}
 
       <Paper variant="outlined" sx={{ mt: 2.5, borderRadius: 3, overflow: "hidden" }}>
-        <Box sx={{ px: 2.5, py: 2, display: "flex", alignItems: "center", gap: 1 }}>
+        <Box sx={{ px: 2.5, py: 2, display: "flex", alignItems: { xs: "stretch", md: "center" }, flexDirection: { xs: "column", md: "row" }, gap: 1.5 }}>
           <CheckCircleOutline color="primary" />
-          <Box>
+          <Box sx={{ flex: 1 }}>
             <Typography variant="h6" fontWeight={800}>最近执行记录</Typography>
             <Typography variant="caption" color="text.secondary">
               每个任务仅展示最新自动检测，已触发的流水线历史完整保留
             </Typography>
           </Box>
+          <TextField
+            size="small"
+            value={logSearch}
+            onChange={(event) => setLogSearch(event.target.value)}
+            placeholder="搜索任务、提交、运行 ID、状态或说明"
+            aria-label="搜索最近执行记录"
+            sx={{ width: { xs: "100%", md: 340 } }}
+          />
+          {logsLoading && <CircularProgress size={18} />}
         </Box>
         <TableContainer>
           <Table size="small">
@@ -649,6 +685,20 @@ export default function PipelineManagementPage() {
             </TableBody>
           </Table>
         </TableContainer>
+        <TablePagination
+          component="div"
+          count={logTotalCount}
+          page={logPage}
+          onPageChange={(_, page) => setLogPage(page)}
+          rowsPerPage={logPageSize}
+          onRowsPerPageChange={(event) => {
+            setLogPageSize(Number(event.target.value));
+            setLogPage(0);
+          }}
+          rowsPerPageOptions={[10, 20, 50]}
+          labelRowsPerPage="每页"
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count}`}
+        />
       </Paper>
 
       <Dialog open={dialogOpen} onClose={() => !actionId && setDialogOpen(false)} fullWidth maxWidth="sm">
