@@ -32,7 +32,7 @@ export async function GET(request) {
 
     const [tasks, logs] = await Promise.all([
       PipelineDB.getAllTasks(),
-      PipelineDB.getLogs({ limit: 30 }),
+      PipelineDB.getLogsWithPipelineRuns(100),
     ]);
     const taskMap = new Map(tasks.map((task) => [String(task.id), task]));
     const targets = new Map();

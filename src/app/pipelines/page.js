@@ -208,6 +208,13 @@ function PipelineLogRunCell({ log, runState, now }) {
   const runId = log.pipeline_run_id;
   if (!runId) return <StatusChip status={log.status} />;
 
+  const cachedRun = log.pipeline_status ? {
+    status: log.pipeline_status,
+    startTime: log.pipeline_start_time,
+    endTime: log.pipeline_end_time,
+    durationSeconds: log.pipeline_duration_seconds,
+  } : null;
+  const run = runState?.run || cachedRun;
   const runUrl = `https://flow.aliyun.com/pipelines/${encodeURIComponent(pipelineId)}/builds/${encodeURIComponent(runId)}`;
   return (
     <Stack spacing={0.5} sx={{ minWidth: 190 }}>
@@ -218,9 +225,9 @@ function PipelineLogRunCell({ log, runState, now }) {
         rel="noopener noreferrer"
         sx={{ color: "primary.main", fontFamily: "monospace", fontWeight: 800, textDecoration: "none", "&:hover": { textDecoration: "underline" } }}
       >
-        Flow #{pipelineId} / 运行 #{runId} <OpenInNew sx={{ fontSize: 12, verticalAlign: "-1px" }} />
+        运行 #{runId} <OpenInNew sx={{ fontSize: 12, verticalAlign: "-1px" }} />
       </Typography>
-      {runState?.run ? <PipelineRunStatus run={runState.run} now={now} /> : <StatusChip status={log.status} />}
+      {run ? <PipelineRunStatus run={run} now={now} /> : <StatusChip status={log.status} />}
       {runState?.error && <Typography variant="caption" color="error.main">{runState.error}</Typography>}
     </Stack>
   );
