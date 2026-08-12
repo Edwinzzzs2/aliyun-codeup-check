@@ -74,6 +74,15 @@ const RUN_STATUS_META = {
   WAITING: { label: "等待中", color: "warning" },
 };
 
+const ACTIVE_RUN_STATUSES = new Set(["RUNNING", "WAITING"]);
+const RUN_STATUS_COLORS = {
+  RUNNING: "#1677ff",
+  SUCCESS: "#16a34a",
+  FAIL: "#dc2626",
+  CANCELED: "#98a2b3",
+  WAITING: "#f59e0b",
+};
+
 function shortCommit(commitId) {
   return commitId ? String(commitId).slice(0, 8) : "—";
 }
@@ -100,20 +109,20 @@ function formatDurationSeconds(totalSeconds) {
 }
 
 function formatRunDuration(run, now) {
+  const start = toTimestamp(run?.startTime);
+  // 活动态优先用开始时间本地计时，避免数据库暂存的 0 秒让页面一直停在初始值。
+  if (start && ACTIVE_RUN_STATUSES.has(run?.status)) {
+    return formatDurationSeconds(Math.max(Math.floor((now - start) / 1000), 0));
+  }
+
   const storedDuration = Number(run?.durationSeconds);
   if (Number.isFinite(storedDuration) && storedDuration >= 0) {
     return formatDurationSeconds(Math.floor(storedDuration));
   }
 
-  const start = toTimestamp(run?.startTime);
   const end = toTimestamp(run?.endTime);
   if (start && end && end >= start) {
     return formatDurationSeconds(Math.floor((end - start) / 1000));
-  }
-
-  // 只有运行中或等待中的实例才能用当前时间计时；终态缺少结束时间时停止累加。
-  if (start && ["RUNNING", "WAITING"].includes(run?.status)) {
-    return formatDurationSeconds(Math.max(Math.floor((now - start) / 1000), 0));
   }
   return "待同步";
 }
@@ -135,12 +144,42 @@ function PipelineRunStatus({ run, now }) {
   if (!meta) return null;
 
   return (
-    <Stack direction="row" alignItems="center" spacing={0.7} sx={{ minWidth: 0 }}>
-      <Chip size="small" label={meta.label} color={meta.color} sx={{ height: 20, "& .MuiChip-label": { px: 0.8 } }} />
-      <Typography variant="caption" color="text.secondary" noWrap>
-        {["RUNNING", "WAITING"].includes(run.status) ? "已运行" : "总耗时"} {formatRunDuration(run, now)}
-      </Typography>
+    <Stack spacing={0.6} sx={{ minWidth: 0 }}>
+      <Stack direction="row" alignItems="center" spacing={0.7} sx={{ minWidth: 0 }}>
+        <Chip size="small" label={meta.label} color={meta.color} sx={{ height: 20, "& .MuiChip-label": { px: 0.8 } }} />
+        <Typography variant="caption" color="text.secondary" noWrap>
+          {ACTIVE_RUN_STATUSES.has(run.status) ? "已运行" : "总耗时"} {formatRunDuration(run, now)}
+        </Typography>
+      </Stack>
+      <PipelineRunSteps steps={run.steps} />
     </Stack>
+  );
+}
+
+function PipelineRunSteps({ steps }) {
+  if (!Array.isArray(steps) || steps.length === 0) return null;
+
+  return (
+    <Box sx={{ display: "flex", alignItems: "flex-end", minWidth: 0, maxWidth: "100%", overflowX: "auto", pb: 0.25 }}>
+      {steps.map((step, index) => {
+        const status = String(step?.status || "WAITING").toUpperCase();
+        const meta = RUN_STATUS_META[status] || { label: status, color: "default" };
+        const color = RUN_STATUS_COLORS[status] || "#cbd5e1";
+        return (
+          <Box key={step?.id || `${step?.name}-${index}`} sx={{ display: "flex", alignItems: "flex-end", flexShrink: 0 }}>
+            <Stack alignItems="center" spacing={0.3} sx={{ minWidth: 42 }}>
+              <Typography variant="caption" noWrap sx={{ maxWidth: 90, color: "text.secondary" }}>
+                {step?.name || "未命名"}
+              </Typography>
+              <Tooltip title={meta.label} placement="bottom">
+                <Box sx={{ width: 9, height: 9, borderRadius: "50%", bgcolor: color, boxShadow: `0 0 0 2px ${color}22` }} />
+              </Tooltip>
+            </Stack>
+            {index < steps.length - 1 && <Box sx={{ width: 22, height: 1, bgcolor: "divider", mb: "4px", mx: 0.25 }} />}
+          </Box>
+        );
+      })}
+    </Box>
   );
 }
 
@@ -213,6 +252,7 @@ function PipelineLogRunCell({ log, runState, now }) {
     startTime: log.pipeline_start_time,
     endTime: log.pipeline_end_time,
     durationSeconds: log.pipeline_duration_seconds,
+    steps: Array.isArray(log.pipeline_steps) ? log.pipeline_steps : [],
   } : null;
   const run = runState?.run || cachedRun;
   const runUrl = `https://flow.aliyun.com/pipelines/${encodeURIComponent(pipelineId)}/builds/${encodeURIComponent(runId)}`;
@@ -390,7 +430,7 @@ export default function PipelineManagementPage() {
   }, [logSearch]);
 
   useEffect(() => {
-    // 运行中耗时在前端逐秒更新，云效状态则低频静默同步，避免频繁请求和页面闪烁。
+    // 运行中耗时仅在前端逐秒更新，不产生网络请求；云效状态每 10 秒静默同步一次。
     const durationTimer = window.setInterval(() => setNow(Date.now()), 1000);
     const statusTimer = window.setInterval(loadRunStates, 10000);
     return () => {

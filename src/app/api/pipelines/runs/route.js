@@ -8,6 +8,10 @@ import {
 
 const ACTIVE_RUN_STATUSES = new Set(['RUNNING', 'WAITING']);
 
+function isActiveRun(run) {
+  return ACTIVE_RUN_STATUSES.has(String(run?.status || '').toUpperCase());
+}
+
 function cachedRun(log) {
   if (!log?.pipeline_status) return null;
   return {
@@ -16,6 +20,7 @@ function cachedRun(log) {
     startTime: log.pipeline_start_time,
     endTime: log.pipeline_end_time,
     durationSeconds: log.pipeline_duration_seconds,
+    steps: Array.isArray(log.pipeline_steps) ? log.pipeline_steps : [],
   };
 }
 
@@ -60,7 +65,7 @@ export async function GET(request) {
           ? runKey(task.organization_id, pipelineId, log.pipeline_run_id)
           : null;
         const run = cachedRun(log);
-        if (!run || ACTIVE_RUN_STATUSES.has(run.status) || !run.endTime) {
+        if (isActiveRun(run)) {
           addTarget(task, pipelineId, log.pipeline_run_id, log.id);
         }
         return { log, task, pipelineId, key, run };
@@ -71,13 +76,13 @@ export async function GET(request) {
       .map((task) => {
         const key = runKey(task.organization_id, task.pipeline_id, task.last_pipeline_run_id);
         const matchingLog = logEntries.find((entry) => entry.key === key);
-        if (!matchingLog?.run || ACTIVE_RUN_STATUSES.has(matchingLog.run.status) || !matchingLog.run.endTime) {
+        if (isActiveRun(matchingLog?.run)) {
           addTarget(task, task.pipeline_id, task.last_pipeline_run_id);
         }
         return { task, key, run: matchingLog?.run || null };
       });
 
-    // 已完成实例读取数据库缓存，仅轮询未落库或仍在运行的实例，支持多流水线而不放大请求量。
+    // 只有数据库明确记录为活动态的实例才查询云效；终态和未知历史状态直接读取本地缓存。
     const targetList = [...targets.values()];
     const settledRuns = await Promise.allSettled(
       targetList.map((target) => getPipelineRun(target.task, scope.token))

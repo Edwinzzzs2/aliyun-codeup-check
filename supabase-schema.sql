@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS pipeline_logs (
     pipeline_start_time TIMESTAMP,
     pipeline_end_time TIMESTAMP,
     pipeline_duration_seconds INTEGER,
+    pipeline_steps JSONB,
     trigger_type TEXT NOT NULL DEFAULT 'scheduled',
     request_data TEXT,
     response_data TEXT,
@@ -133,6 +134,7 @@ ALTER TABLE pipeline_logs ADD COLUMN IF NOT EXISTS pipeline_status TEXT;
 ALTER TABLE pipeline_logs ADD COLUMN IF NOT EXISTS pipeline_start_time TIMESTAMP;
 ALTER TABLE pipeline_logs ADD COLUMN IF NOT EXISTS pipeline_end_time TIMESTAMP;
 ALTER TABLE pipeline_logs ADD COLUMN IF NOT EXISTS pipeline_duration_seconds INTEGER;
+ALTER TABLE pipeline_logs ADD COLUMN IF NOT EXISTS pipeline_steps JSONB;
 
 UPDATE pipeline_logs
 SET pipeline_duration_seconds = GREATEST(
