@@ -50,6 +50,8 @@ export default function MergeRequest() {
   const [mrTotal, setMrTotal] = useState(0);
   const [mrPerPage, setMrPerPage] = useState(10);
   const [operatingIds, setOperatingIds] = useState({
+    reviewing: new Set(),
+    reviewed: new Set(),
     merging: new Set(),
     closing: new Set(),
   });
@@ -250,6 +252,64 @@ export default function MergeRequest() {
     }
     setCompareDialogOpen(true);
   }, [branchState.sourceBranch, branchState.targetBranch, showMessage]);
+
+  // 提交“通过”意见；权限不足或当前用户不是评审人时，由云效返回明确错误。
+  const handleReviewRequest = async (rowData) => {
+    if (!token || !orgId || !selectedRepo) {
+      showMessage("缺少必要的配置信息", "error");
+      return;
+    }
+
+    const requestId = rowData.id;
+    const originalData = rowData.originalData;
+    const isOperating =
+      operatingIds.reviewing.has(requestId) ||
+      operatingIds.merging.has(requestId) ||
+      operatingIds.closing.has(requestId);
+    if (isOperating || operatingIds.reviewed.has(requestId)) return;
+
+    setOperatingIds((prev) => ({
+      ...prev,
+      reviewing: new Set([...prev.reviewing, requestId]),
+    }));
+
+    try {
+      const response = await fetch("/api/codeup/review", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-yunxiao-token": token,
+        },
+        body: JSON.stringify({
+          organization_id: orgId,
+          repository_id: selectedRepo,
+          local_id: originalData.localId || originalData.id,
+          review_opinion: "PASS",
+        }),
+      });
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        showMessage("合并请求已通过！", "success");
+        setOperatingIds((prev) => ({
+          ...prev,
+          reviewed: new Set([...prev.reviewed, requestId]),
+        }));
+      } else {
+        showMessage(result.details || result.error || "通过失败", "error");
+      }
+    } catch (error) {
+      console.error("评审合并请求错误:", error);
+      showMessage(`通过失败: ${error.message}`, "error");
+    } finally {
+      setOperatingIds((prev) => {
+        const newReviewing = new Set(prev.reviewing);
+        newReviewing.delete(requestId);
+        return { ...prev, reviewing: newReviewing };
+      });
+    }
+  };
+
   // 处理合并请求
   const handleMergeRequest = async (rowData) => {
     if (!token || !orgId || !selectedRepo) {
@@ -736,95 +796,68 @@ export default function MergeRequest() {
                 field: "actions",
                 headerName: "操作",
                 flex: 1,
-                minWidth: 150,
+                minWidth: 180,
                 sortable: false,
                 headerAlign: "center",
                 align: "center",
                 renderCell: (params) => {
-                  const canMerge = params.row.state === "TO_BE_MERGED";
-                  const canClose = [
-                    "TO_BE_MERGED",
-                    "UNDER_REVIEW",
-                    "OPEN",
-                    "DRAFT",
-                    "REVIEWING",
-                  ].includes(params.row.state);
+                  const showActions = params.row.state === "TO_BE_MERGED";
+                  const isOperating =
+                    operatingIds.reviewing.has(params.row.id) ||
+                    operatingIds.merging.has(params.row.id) ||
+                    operatingIds.closing.has(params.row.id);
+                  const hasReviewed = operatingIds.reviewed.has(params.row.id);
+
+                  if (!showActions) return null;
 
                   return (
                     <Box
                       sx={{
                         display: "flex",
-                        gap: 2,
+                        gap: 0.5,
                         alignItems: "center",
                         justifyContent: "center",
                         height: "100%",
                         minHeight: "52px",
                       }}
                     >
-                      {canMerge && (
-                        <Typography
-                          variant="body2"
-                          onClick={() => handleMergeRequest(params.row)}
-                          sx={{
-                            color:
-                              operatingIds.merging.has(params.row.id) ||
-                              operatingIds.closing.has(params.row.id)
-                                ? "#9e9e9e"
-                                : "#2e7d32",
-                            fontWeight: 500,
-                            fontSize: "13px",
-                            cursor:
-                              operatingIds.merging.has(params.row.id) ||
-                              operatingIds.closing.has(params.row.id)
-                                ? "not-allowed"
-                                : "pointer",
-                            "&:hover": {
-                              color:
-                                operatingIds.merging.has(params.row.id) ||
-                                operatingIds.closing.has(params.row.id)
-                                  ? "#9e9e9e"
-                                  : "#1b5e20",
-                              textDecoration: "underline",
-                            },
-                          }}
-                        >
-                          {operatingIds.merging.has(params.row.id)
-                            ? "合并中..."
-                            : "合并"}
-                        </Typography>
-                      )}
-                      {canClose && (
-                        <Typography
-                          variant="body2"
-                          onClick={() => handleCloseRequest(params.row)}
-                          sx={{
-                            color:
-                              operatingIds.merging.has(params.row.id) ||
-                              operatingIds.closing.has(params.row.id)
-                                ? "#9e9e9e"
-                                : "#d32f2f",
-                            fontWeight: 500,
-                            fontSize: "13px",
-                            cursor:
-                              operatingIds.merging.has(params.row.id) ||
-                              operatingIds.closing.has(params.row.id)
-                                ? "not-allowed"
-                                : "pointer",
-                            "&:hover": {
-                              color:
-                                operatingIds.merging.has(params.row.id) ||
-                                operatingIds.closing.has(params.row.id)
-                                  ? "#9e9e9e"
-                                  : "#b71c1c",
-                              textDecoration: "underline",
-                            },
-                          }}
-                        >
-                          {operatingIds.closing.has(params.row.id)
-                            ? "关闭中..."
-                            : "关闭"}
-                        </Typography>
-                      )}
+                      <Button
+                        size="small"
+                        color="success"
+                        variant="text"
+                        disabled={isOperating || hasReviewed}
+                        onClick={() => handleReviewRequest(params.row)}
+                        sx={{ minWidth: 44, px: 0.75 }}
+                      >
+                        {operatingIds.reviewing.has(params.row.id)
+                          ? "通过中..."
+                          : hasReviewed
+                          ? "已通过"
+                          : "通过"}
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="text"
+                        disabled={isOperating}
+                        onClick={() => handleMergeRequest(params.row)}
+                        sx={{ minWidth: 44, px: 0.75 }}
+                      >
+                        {operatingIds.merging.has(params.row.id)
+                          ? "合并中..."
+                          : "合并"}
+                      </Button>
+                      <Button
+                        size="small"
+                        color="error"
+                        variant="text"
+                        disabled={isOperating}
+                        onClick={() => handleCloseRequest(params.row)}
+                        sx={{ minWidth: 44, px: 0.75 }}
+                      >
+                        {operatingIds.closing.has(params.row.id)
+                          ? "关闭中..."
+                          : "关闭"}
+                      </Button>
                     </Box>
                   );
                 },
