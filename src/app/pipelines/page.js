@@ -45,6 +45,7 @@ import {
   SyncAlt,
 } from "@mui/icons-material";
 import { useRepoChange, useToken, useTokenMessage } from "../../contexts/TokenContext";
+import { normalizePipelineId } from "../../utils/pipeline-id";
 
 const EMPTY_FORM = {
   name: "test 分支流水线监听",
@@ -622,12 +623,19 @@ export default function PipelineManagementPage() {
       return;
     }
 
+    const pipelineId = normalizePipelineId(form.pipeline_id);
+    if (!pipelineId) {
+      showMessage("请填写流水线 ID，或粘贴有效的云效 Flow 地址", "error");
+      return;
+    }
+
     setActionId("save");
     try {
       const weekdayInterval = Number(form.weekday_interval_minutes);
       const weekendInterval = Number(form.weekend_interval_minutes);
       const payload = {
         ...form,
+        pipeline_id: pipelineId,
         organization_id: orgId,
         // 旧字段同步工作日频率，便于未升级到分星期配置的历史逻辑继续读取。
         interval_minutes: weekdayInterval,
@@ -925,7 +933,26 @@ export default function PipelineManagementPage() {
           <Stack spacing={2} sx={{ pt: 1 }}>
             <TextField label="任务名称" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required />
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField label="流水线 ID" value={form.pipeline_id} onChange={(event) => setForm({ ...form, pipeline_id: event.target.value })} required fullWidth />
+              <TextField
+                label="流水线 ID"
+                value={form.pipeline_id}
+                onChange={(event) => setForm({ ...form, pipeline_id: event.target.value })}
+                onPaste={(event) => {
+                  const pastedValue = event.clipboardData.getData("text");
+                  const pipelineId = normalizePipelineId(pastedValue);
+                  if (!pipelineId || pipelineId === pastedValue.trim()) return;
+                  event.preventDefault();
+                  setForm((current) => ({ ...current, pipeline_id: pipelineId }));
+                }}
+                onBlur={() => {
+                  const pipelineId = normalizePipelineId(form.pipeline_id);
+                  if (pipelineId) setForm((current) => ({ ...current, pipeline_id: pipelineId }));
+                }}
+                placeholder="3817015 或粘贴 Flow 地址"
+                helperText="支持直接填写 ID，或粘贴 https://flow.aliyun.com/pipelines/3817015/history"
+                required
+                fullWidth
+              />
               <TextField label="监听分支" value={form.branch_name} onChange={(event) => setForm({ ...form, branch_name: event.target.value })} required fullWidth />
             </Stack>
             <Select displayEmpty value={form.repository_id} onChange={(event) => handleRepositoryChange(event.target.value)}>

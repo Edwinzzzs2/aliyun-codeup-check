@@ -5,6 +5,7 @@ import {
   getAuthorizationError,
   requireRepositoryRead,
 } from '../../../../../lib/codeup.authorization';
+import { normalizePipelineId } from '../../../../utils/pipeline-id';
 
 const REQUIRED_FIELDS = [
   'name',
@@ -61,7 +62,11 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const task = await request.json();
+    const requestTask = await request.json();
+    const task = {
+      ...requestTask,
+      pipeline_id: normalizePipelineId(requestTask.pipeline_id),
+    };
     const validationMessage = validateTask(task);
     if (validationMessage) {
       return NextResponse.json({ success: false, message: validationMessage }, { status: 400 });
@@ -119,7 +124,11 @@ export async function PUT(request) {
     }
     const { token } = await requireRepositoryRead(request, current);
 
-    const updates = await request.json();
+    const requestUpdates = await request.json();
+    const updates = { ...requestUpdates };
+    if (requestUpdates.pipeline_id !== undefined) {
+      updates.pipeline_id = normalizePipelineId(requestUpdates.pipeline_id);
+    }
     const nextTask = { ...current, ...updates };
     const validationMessage = validateTask(nextTask);
     if (validationMessage) {
