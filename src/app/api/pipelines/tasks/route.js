@@ -19,7 +19,19 @@ const REQUIRED_FIELDS = [
 function validateTask(task) {
   const missing = REQUIRED_FIELDS.filter((field) => !task[field]);
   if (missing.length) return `缺少必要参数：${missing.join('、')}`;
-  if (Number(task.interval_minutes) < 1) return '监听间隔必须大于等于 1 分钟';
+  if (!Number.isFinite(Number(task.interval_minutes)) || Number(task.interval_minutes) < 1) {
+    return '监听间隔必须大于等于 1 分钟';
+  }
+  if (task.weekday_interval_minutes != null
+    && (!Number.isFinite(Number(task.weekday_interval_minutes))
+      || Number(task.weekday_interval_minutes) < 1)) {
+    return '工作日监听间隔必须大于等于 1 分钟';
+  }
+  if (task.weekend_interval_minutes != null
+    && (!Number.isFinite(Number(task.weekend_interval_minutes))
+      || Number(task.weekend_interval_minutes) < 1)) {
+    return '周末监听间隔必须大于等于 1 分钟';
+  }
   if (!/^https:\/\/codeup\.aliyun\.com\//i.test(task.repository_url)) {
     return '仓库 Git 地址必须是 https://codeup.aliyun.com/ 下的地址';
   }
@@ -62,6 +74,12 @@ export async function POST(request) {
     const created = await PipelineDB.createTask({
       ...task,
       interval_minutes: Number(task.interval_minutes),
+      weekday_interval_minutes: task.weekday_interval_minutes == null
+        ? null
+        : Number(task.weekday_interval_minutes),
+      weekend_interval_minutes: task.weekend_interval_minutes == null
+        ? null
+        : Number(task.weekend_interval_minutes),
       last_commit_id: commitId,
       extra_envs: task.extra_envs || {},
     });
@@ -121,6 +139,16 @@ export async function PUT(request) {
       interval_minutes: updates.interval_minutes === undefined
         ? undefined
         : Number(updates.interval_minutes),
+      weekday_interval_minutes: updates.weekday_interval_minutes === undefined
+        ? undefined
+        : updates.weekday_interval_minutes == null
+          ? null
+          : Number(updates.weekday_interval_minutes),
+      weekend_interval_minutes: updates.weekend_interval_minutes === undefined
+        ? undefined
+        : updates.weekend_interval_minutes == null
+          ? null
+          : Number(updates.weekend_interval_minutes),
     });
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {

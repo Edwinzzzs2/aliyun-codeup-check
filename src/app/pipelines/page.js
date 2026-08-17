@@ -14,6 +14,7 @@ import {
   Divider,
   FormControlLabel,
   IconButton,
+  InputAdornment,
   MenuItem,
   Paper,
   Select,
@@ -52,7 +53,9 @@ const EMPTY_FORM = {
   repository_name: "",
   repository_url: "",
   branch_name: "test",
-  interval_minutes: 5,
+  interval_minutes: 3,
+  weekday_interval_minutes: 3,
+  weekend_interval_minutes: 60,
   enabled: true,
   force_update: true,
   extra_envs: "{}",
@@ -75,6 +78,7 @@ const RUN_STATUS_META = {
 };
 
 const ACTIVE_RUN_STATUSES = new Set(["RUNNING", "WAITING"]);
+const PENDING_STEP_STATUSES = new Set(["WAITING", "INIT", "PENDING", "QUEUED"]);
 const RUN_STATUS_COLORS = {
   RUNNING: "#1677ff",
   SUCCESS: "#16a34a",
@@ -110,6 +114,19 @@ function shortCommit(commitId) {
 function formatTime(value) {
   if (!value) return "—";
   return String(value).replace("T", " ").replace(/\.\d+Z?$/, "");
+}
+
+function getDisplayInterval(task, field) {
+  const configured = Number(task?.[field]);
+  if (Number.isFinite(configured) && configured >= 1) return configured;
+  const fallback = Number(task?.interval_minutes);
+  return Number.isFinite(fallback) && fallback >= 1 ? fallback : 5;
+}
+
+function formatInterval(value) {
+  const minutes = Number(value);
+  if (minutes >= 60 && minutes % 60 === 0) return `${minutes / 60} 小时`;
+  return `${minutes} 分钟`;
 }
 
 function formatRunStartTime(value) {
@@ -193,27 +210,32 @@ function PipelineRunSummary({ run, now }) {
 function PipelineRunSteps({ steps }) {
   if (!Array.isArray(steps) || steps.length === 0) return null;
 
-  const completedCount = steps.filter((step) => String(step?.status).toUpperCase() === "SUCCESS").length;
+  // 兼容旧记录中同时保存 stage 和 job 的数据；存在 stage 时只展示顶层流程节点。
+  const stageSteps = steps.filter((step) => String(step?.id || "").startsWith("stage-"));
+  const displaySteps = stageSteps.length > 0 ? stageSteps : steps;
+  const completedCount = displaySteps.filter((step) => String(step?.status).toUpperCase() === "SUCCESS").length;
 
   return (
     <Box sx={{ minWidth: 0 }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.65 }}>
         <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>运行阶段</Typography>
         <Typography variant="caption" sx={{ color: "text.disabled", fontFamily: "monospace" }}>
-          {completedCount}/{steps.length}
+          {completedCount}/{displaySteps.length}
         </Typography>
       </Stack>
       <Box sx={{ overflowX: "auto", overflowY: "hidden", pb: 0.35 }}>
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: `repeat(${steps.length}, minmax(82px, 1fr))`,
-            minWidth: Math.max(steps.length * 82, 260),
+            gridTemplateColumns: `repeat(${displaySteps.length}, minmax(108px, 1fr))`,
+            minWidth: Math.max(displaySteps.length * 108, 300),
           }}
         >
-          {steps.map((step, index) => {
-            const status = String(step?.status || "WAITING").toUpperCase();
-            const nextStatus = String(steps[index + 1]?.status || "WAITING").toUpperCase();
+          {displaySteps.map((step, index) => {
+            const rawStatus = String(step?.status || "WAITING").toUpperCase();
+            const rawNextStatus = String(displaySteps[index + 1]?.status || "WAITING").toUpperCase();
+            const status = PENDING_STEP_STATUSES.has(rawStatus) ? "WAITING" : rawStatus;
+            const nextStatus = PENDING_STEP_STATUSES.has(rawNextStatus) ? "WAITING" : rawNextStatus;
             const meta = RUN_STATUS_META[status] || { label: status, color: "default" };
             const color = RUN_STATUS_COLORS[status] || "#cbd5e1";
             // 连线使用下一阶段的颜色，让执行进度从左到右自然延伸到当前节点。
@@ -229,7 +251,7 @@ function PipelineRunSteps({ steps }) {
                     {step?.name || "未命名"}
                   </Typography>
                   <Box sx={{ position: "relative", height: 18, mt: 0.25 }}>
-                    {index < steps.length - 1 && (
+                    {index < displaySteps.length - 1 && (
                       <Box
                         sx={{
                           position: "absolute",
@@ -567,9 +589,13 @@ export default function PipelineManagementPage() {
   };
 
   const openEditDialog = (task) => {
+    const fallbackInterval = getDisplayInterval(task, "interval_minutes");
     setEditingTask(task);
     setForm({
       ...task,
+      interval_minutes: fallbackInterval,
+      weekday_interval_minutes: getDisplayInterval(task, "weekday_interval_minutes"),
+      weekend_interval_minutes: getDisplayInterval(task, "weekend_interval_minutes"),
       extra_envs: JSON.stringify(task.extra_envs || {}, null, 2),
     });
     setDialogOpen(true);
@@ -598,10 +624,15 @@ export default function PipelineManagementPage() {
 
     setActionId("save");
     try {
+      const weekdayInterval = Number(form.weekday_interval_minutes);
+      const weekendInterval = Number(form.weekend_interval_minutes);
       const payload = {
         ...form,
         organization_id: orgId,
-        interval_minutes: Number(form.interval_minutes),
+        // 旧字段同步工作日频率，便于未升级到分星期配置的历史逻辑继续读取。
+        interval_minutes: weekdayInterval,
+        weekday_interval_minutes: weekdayInterval,
+        weekend_interval_minutes: weekendInterval,
         extra_envs: extraEnvs,
       };
       await requestJson(
@@ -758,7 +789,7 @@ export default function PipelineManagementPage() {
                   display: "grid",
                   gridTemplateColumns: {
                     xs: "1fr",
-                    md: "minmax(130px, 0.8fr) minmax(300px, 1.7fr) minmax(120px, 0.7fr)",
+                    md: "minmax(130px, 0.8fr) minmax(300px, 1.7fr) minmax(160px, 0.8fr)",
                   },
                   gap: 1.15,
                   my: 2,
@@ -771,7 +802,20 @@ export default function PipelineManagementPage() {
                 <PipelineRunMetric task={task} runState={runStates[String(task.id)]} now={now} />
                 <Box sx={METRIC_TILE_SX}>
                   <Typography variant="caption" color="text.secondary">监听频率</Typography>
-                  <Typography sx={{ fontFamily: "monospace", fontWeight: 800, mt: 0.2 }} noWrap>{task.interval_minutes} 分钟</Typography>
+                  <Stack spacing={0.45} sx={{ mt: 0.65 }}>
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                      <Typography variant="caption" color="text.secondary">工作日</Typography>
+                      <Typography variant="body2" sx={{ fontFamily: "monospace", fontWeight: 800 }} noWrap>
+                        {formatInterval(getDisplayInterval(task, "weekday_interval_minutes"))}
+                      </Typography>
+                    </Stack>
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                      <Typography variant="caption" color="text.secondary">周末</Typography>
+                      <Typography variant="body2" sx={{ fontFamily: "monospace", fontWeight: 800 }} noWrap>
+                        {formatInterval(getDisplayInterval(task, "weekend_interval_minutes"))}
+                      </Typography>
+                    </Stack>
+                  </Stack>
                 </Box>
               </Box>
 
@@ -889,7 +933,36 @@ export default function PipelineManagementPage() {
               {repositories.map((repository) => <MenuItem key={repository.id} value={String(repository.id)}>{repository.name}</MenuItem>)}
             </Select>
             <TextField label="仓库 Git 地址" value={form.repository_url} onChange={(event) => setForm({ ...form, repository_url: event.target.value })} required helperText="必须与 Flow 流水线代码源地址完全一致，例如 https://codeup.aliyun.com/.../xlb_fss_web.git" />
-            <TextField label="监听间隔（分钟）" type="number" value={form.interval_minutes} onChange={(event) => setForm({ ...form, interval_minutes: event.target.value })} inputProps={{ min: 1 }} required />
+            <Box sx={{ p: 1.6, border: "1px solid", borderColor: "divider", borderRadius: 2, bgcolor: "#f8fafb" }}>
+              <Stack direction={{ xs: "column", sm: "row" }} alignItems={{ xs: "flex-start", sm: "center" }} justifyContent="space-between" gap={0.5} sx={{ mb: 1.4 }}>
+                <Typography variant="subtitle2" fontWeight={700}>监听频率</Typography>
+                <Typography variant="caption" color="text.secondary">按北京时间自动切换</Typography>
+              </Stack>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                <TextField
+                  label="工作日"
+                  type="number"
+                  value={form.weekday_interval_minutes}
+                  onChange={(event) => setForm({ ...form, weekday_interval_minutes: event.target.value })}
+                  inputProps={{ min: 1 }}
+                  InputProps={{ endAdornment: <InputAdornment position="end">分钟</InputAdornment> }}
+                  helperText="周一至周五"
+                  required
+                  fullWidth
+                />
+                <TextField
+                  label="周末"
+                  type="number"
+                  value={form.weekend_interval_minutes}
+                  onChange={(event) => setForm({ ...form, weekend_interval_minutes: event.target.value })}
+                  inputProps={{ min: 1 }}
+                  InputProps={{ endAdornment: <InputAdornment position="end">分钟</InputAdornment> }}
+                  helperText="周六、周日"
+                  required
+                  fullWidth
+                />
+              </Stack>
+            </Box>
             <TextField label="附加运行变量（JSON）" value={form.extra_envs} onChange={(event) => setForm({ ...form, extra_envs: event.target.value })} multiline minRows={3} placeholder={'{\n  "KEY": "VALUE"\n}'} />
             <Stack direction="row" spacing={3}>
               <FormControlLabel control={<Switch checked={Boolean(form.force_update)} onChange={(event) => setForm({ ...form, force_update: event.target.checked })} />} label="FORCE_UPDATE=1" />

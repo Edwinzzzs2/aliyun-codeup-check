@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS pipeline_tasks (
     repository_url TEXT NOT NULL,
     branch_name TEXT NOT NULL,
     interval_minutes INTEGER NOT NULL DEFAULT 5,
+    weekday_interval_minutes INTEGER,
+    weekend_interval_minutes INTEGER,
     enabled BOOLEAN NOT NULL DEFAULT true,
     force_update BOOLEAN NOT NULL DEFAULT true,
     extra_envs TEXT NOT NULL DEFAULT '{}',
@@ -21,6 +23,9 @@ CREATE TABLE IF NOT EXISTS pipeline_tasks (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE pipeline_tasks ADD COLUMN IF NOT EXISTS weekday_interval_minutes INTEGER;
+ALTER TABLE pipeline_tasks ADD COLUMN IF NOT EXISTS weekend_interval_minutes INTEGER;
 
 CREATE TABLE IF NOT EXISTS pipeline_logs (
     id BIGSERIAL PRIMARY KEY,
